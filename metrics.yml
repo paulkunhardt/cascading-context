@@ -1,0 +1,13 @@
+# metrics.yml — project-wide metrics registry
+# The LLM updates this file FIRST in any cascade, before touching docs.
+# Scripts verify all (→ metrics.yml#field) references against these values.
+
+last_updated: 2026-03-21
+
+# Key metrics for validation sprint
+outreach_sent: 42
+responses: 7
+discovery_calls: 3
+verbal_commitments: 1
+lois_signed: 0
+mvp_status: "wireframes complete"
