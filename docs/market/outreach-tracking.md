@@ -4,7 +4,7 @@
 **Status:** Active
 **Role:** cascade-target
 
-**TL;DR:** **42** (→ metrics.yml#outreach_sent) total messages sent across 3 batches. **7** (→ metrics.yml#responses) responses (17% rate). LinkedIn messages outperform email (22% vs 11%). Compliance managers respond more than CTOs.
+**TL;DR:** [**42**](metrics.yml#outreach_sent) total messages sent across 3 batches. [**7**](metrics.yml#responses) responses (17% rate). LinkedIn messages outperform email (22% vs 11%). Compliance managers respond more than CTOs.
 
 ---
 

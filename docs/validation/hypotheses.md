@@ -4,7 +4,7 @@
 **Status:** Active
 **Role:** cascade-target
 
-**TL;DR:** 8 hypotheses tracked. **3** validated or partially validated after **3** (→ metrics.yml#discovery_calls) discovery calls. Strongest signal: H1 (evidence collection is the bottleneck) confirmed by all 3 calls. H3 (pricing at €199-399/mo) has 1 verbal commitment. H5 (LLM can reason about compliance) untested — critical risk.
+**TL;DR:** 8 hypotheses tracked. **3** validated or partially validated after [**3**](metrics.yml#discovery_calls) discovery calls. Strongest signal: H1 (evidence collection is the bottleneck) confirmed by all 3 calls. H3 (pricing at €199-399/mo) has 1 verbal commitment. H5 (LLM can reason about compliance) untested — critical risk.
 
 ---
 

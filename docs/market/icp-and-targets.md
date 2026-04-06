@@ -4,7 +4,7 @@
 **Status:** Active
 **Role:** cascade-target
 
-**TL;DR:** Primary ICP: 50-200 person B2B SaaS companies with 1 compliance owner, ISO 27001 or SOC 2 certified, selling to enterprise. **42** (→ metrics.yml#outreach_sent) outreach messages sent, **7** (→ metrics.yml#responses) responses (17% rate), **3** (→ metrics.yml#discovery_calls) discovery calls completed. Best response rate from compliance managers (vs. CTOs or founders).
+**TL;DR:** Primary ICP: 50-200 person B2B SaaS companies with 1 compliance owner, ISO 27001 or SOC 2 certified, selling to enterprise. [**42**](metrics.yml#outreach_sent) outreach messages sent, [**7**](metrics.yml#responses) responses (17% rate), [**3**](metrics.yml#discovery_calls) discovery calls completed. Best response rate from compliance managers (vs. CTOs or founders).
 
 ---
 

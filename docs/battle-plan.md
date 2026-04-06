@@ -4,7 +4,7 @@
 **Status:** Active
 **Role:** source-of-truth
 
-**TL;DR:** 3-week validation sprint (Mar 10–28) for CompliBot, an AI compliance assistant for mid-market SaaS. Week 2 of 3 complete. **42** (→ metrics.yml#outreach_sent) outreach messages sent, **7** (→ metrics.yml#responses) responses, **3** (→ metrics.yml#discovery_calls) discovery calls done, **1** (→ metrics.yml#verbal_commitments) verbal commitment. Biggest signal: compliance managers spend 60% of time on evidence collection, not actual compliance work. Blocker: need 5 more discovery calls by end of Week 3.
+**TL;DR:** 3-week validation sprint (Mar 10–28) for CompliBot, an AI compliance assistant for mid-market SaaS. Week 2 of 3 complete. [**42**](metrics.yml#outreach_sent) outreach messages sent, [**7**](metrics.yml#responses) responses, [**3**](metrics.yml#discovery_calls) discovery calls done, [**1**](metrics.yml#verbal_commitments) verbal commitment. Biggest signal: compliance managers spend 60% of time on evidence collection, not actual compliance work. Blocker: need 5 more discovery calls by end of Week 3.
 
 ---
 
@@ -21,11 +21,11 @@
 
 | Metric | Target | Current |
 |--------|--------|---------|
-| Outreach sent | 80 | **42** (→ metrics.yml#outreach_sent) |
-| Responses | 15 | **7** (→ metrics.yml#responses) |
-| Discovery calls | 10 | **3** (→ metrics.yml#discovery_calls) |
-| Verbal commitments | 3 | **1** (→ metrics.yml#verbal_commitments) |
-| LOIs signed | 1 | **0** (→ metrics.yml#lois_signed) |
+| Outreach sent | 80 | [**42**](metrics.yml#outreach_sent) |
+| Responses | 15 | [**7**](metrics.yml#responses) |
+| Discovery calls | 10 | [**3**](metrics.yml#discovery_calls) |
+| Verbal commitments | 3 | [**1**](metrics.yml#verbal_commitments) |
+| LOIs signed | 1 | [**0**](metrics.yml#lois_signed) |
 
 ---
 

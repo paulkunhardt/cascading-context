@@ -30,7 +30,7 @@ Always include the source: who said it, when, in what context.
 ## 4. Source Reference Format
 
 **Registry metrics** (defined in `metrics.yml`):
-`(→ metrics.yml#field_name)`
+`[**N**](metrics.yml#field_name)`
 
 **Inline metrics** (from another doc):
 `(→ source-doc.md#section-slug)`

@@ -78,16 +78,16 @@ tools/verify-cascade.sh
 ## Source Reference Rules
 
 ### Registry Metrics (Tier 1 — deterministic)
-Numbers defined in `metrics.yml`. Reference as: `**N** (→ metrics.yml#field_name)`
+Numbers defined in `metrics.yml`. Reference as: `[**N**](metrics.yml#field_name)`
 
-Example: `**42** (→ metrics.yml#outreach_sent)`
+This renders as a bold clickable number. Example: `[**42**](metrics.yml#outreach_sent)`
 
 These are verified by exact numeric comparison via `tools/check-metrics.sh`.
 
 ### Inline Metrics (Tier 2 — LLM-verified)
-Less common numbers from another doc. Reference as: `(→ source-doc.md#section-slug)`
+Less common numbers from another doc. Reference as: `[**N**](source-doc.md#section-slug)`
 
-Example: `60% of time on evidence (→ external-insights.md#session-2-key-insights)`
+Example: `60% of time on evidence [**60**](external-insights.md#session-2-key-insights)`
 
 **Rule:** Every number referenced from another document MUST include a source annotation. Only numbers native to a doc (where they originate) have no annotation.
 
