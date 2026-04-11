@@ -1,10 +1,10 @@
 # Cascading Context
 
-Is a simple markdown-based local database for isolated projects where people who poweruse Claude Code, (or any other CLI based LLM tool) and accumulate more context than fits in one conversation, can offload and structure their progress. The more isolated the context to one specific project the better. 
+Is a simple markdown-based local database for isolated projects where people who poweruse Claude Code, (or any other CLI based LLM tool) and accumulate more context than fits in one conversation, can offload and structure their progress. The more isolated the context to one specific project the better.
 
 ## Why?
 
-This naturally evolved during a 3-week validation sprint. Timeboxed, clear focussed tasks, new content every day. If you can record and transcribe every relevant meeting, web research, outreach replies, new hypotheses to log, metrics, etc. then dumping all of that into Claude Code can be an amazing way to organize the entire project. This will inevitably lead to too much context, stale facts and lots of duplicates. 
+This naturally evolved during a 3-week validation sprint. Timeboxed, clear focussed tasks, new content every day. If you can record and transcribe every relevant meeting, web research, outreach replies, new hypotheses to log, metrics, etc. then dumping all of that into Claude Code can be an amazing way to organize the entire project. This will inevitably lead to too much context, stale facts and lots of duplicates.
 
 I wanted a setup where:
 
@@ -24,6 +24,57 @@ This is for you if:
 - You process a lot of input every day: meeting transcripts, web research, replies, notes, papers
 - You have specific targets you're trying to hit, like calls booked, papers read, customers signed, experiments run
 - You've already hit the wall where your LLM session gets too long, starts forgetting things, or starts hallucinating older context
+
+## Quick start
+
+```bash
+git clone https://github.com/paulkunhardt/cascading-context.git my-project
+cd my-project
+claude
+```
+
+That's it. When Claude starts, the onboarding wizard runs automatically. It asks about your project and scaffolds your docs. The demo content gets moved to `examples/startup-validation/` so you can reference it later.
+
+> **How the auto-start works:** A `UserPromptSubmit` hook in `.claude/settings.json` detects that the project hasn't been initialized yet and tells Claude to start the onboarding wizard. You just type anything — "hi", "let's go", or just hit enter — and the wizard kicks off. Once onboarding completes, the hook stops firing.
+
+## Commands
+
+Cascading Context ships with slash commands you can run inside Claude Code. Type them at the prompt.
+
+### `/good-morning` — Start your day
+
+Run this at the beginning of each work session. Claude will:
+
+1. Read your metrics, battle plan, and recent git history
+2. Show you where you are in your sprint — key metrics, gaps to target, unfinished items
+3. Surface anything that's been stuck for 2+ days
+4. Ask what happened since the last session
+5. Cascade any updates into the right docs
+
+Think of it as a daily standup with your AI co-pilot.
+
+### `/wrap-up` — End your day
+
+Run this at the end of each work session. Claude will:
+
+1. Scan today's battle plan tasks — what got done, what didn't
+2. Present the status for your review
+3. Ask for any last updates (small things count — a reply, a thought, a link)
+4. Run the full cascade to sync everything
+5. Report: metrics changed (before/after), docs updated, tomorrow's priorities
+6. Offer to commit with an `eod YYYY-MM-DD: [summary]` message
+
+This is how you close out clean every day without forgetting to log something.
+
+### `/distill <doc-path> [keep:N]` — Compress a long doc
+
+When a doc grows too long for the LLM to read efficiently, `/distill` compresses older content into a thorough summary while archiving the verbatim raw content in `docs/archive/`. Nothing is lost.
+
+How it works depends on the doc's `Compression:` mode (set in frontmatter):
+
+- **chronological** docs (logs, journals): keeps the N most recent dated sections verbatim, summarises the rest
+- **amended** docs (hypothesis trackers, target lists): collapses old `[UPDATE]` blocks into the body text, archives the raw blocks
+- **none** docs (static references): refuses to run — edit these directly
 
 ## What "cascading context" means
 
@@ -63,13 +114,11 @@ LLM runs verify-cascade.sh and fixes anything it complains about
 
 You don't think about any of this. You just tell the LLM what happened. The cascade does the rest.
 
-## Compression and the /distill command
+## Compression modes
 
 Some docs grow forever. A daily log accumulates entries. A conversation journal accumulates sessions. An LLM with finite context can't keep reading a 2,000 line file just to find the latest week.
 
-`/distill` compresses older content into a thorough summary while keeping the raw verbatim copy in `docs/archive/`. Nothing is lost. The summary lives on the main doc, the archive sits next to it for the rare case you need to dig something up.
-
-For this to work, every doc declares a `Compression:` mode in its frontmatter. The mode tells `/distill` how to operate, and (more importantly) it tells the LLM how to add new info to that doc so older content can always be told apart from newer content.
+Every doc declares a `Compression:` mode in its frontmatter. The mode tells `/distill` how to operate, and (more importantly) it tells the LLM how to add new info to that doc so older content can always be told apart from newer content.
 
 Three modes:
 
@@ -79,29 +128,24 @@ Three modes:
 
 Full rules are in `CLAUDE.md` under "Compression Modes & Timestamping Rules".
 
-## Quick start
-
-1. Click "Use this template" or fork the repo
-2. Open it in Claude Code (or your CLI tool of choice)
-3. The onboarding wizard runs on first interaction. It asks 5 questions about your project and scaffolds your docs.
-4. Start working. Tell the LLM what happened today. The cascade does the rest.
-5. At end of day run `/wrap-up`.
-
 ## What's in the box
 
 | Path | Purpose |
 |---|---|
-| `CLAUDE.md` | System prompt with cascade rules, compression modes, /wrap-up protocol |
+| `CLAUDE.md` | System prompt with cascade rules, compression modes, onboarding wizard |
 | `metrics.yml` | The numeric source of truth. All key metrics live here. |
 | `docs/` | Your project docs, organised by domain |
 | `docs/README.md` | Vault rules for how docs get written |
+| `.claude/commands/good-morning.md` | `/good-morning` — daily standup command |
+| `.claude/commands/wrap-up.md` | `/wrap-up` — end-of-day wrap-up command |
+| `.claude/commands/distill.md` | `/distill` — compress long docs command |
+| `.claude/settings.json` | Hook that auto-triggers onboarding on first run |
+| `tools/init-project.sh` | Scaffolds your project on first run (called by the wizard) |
 | `tools/touch-date.sh` | Sets `Last Updated` to today on any file |
 | `tools/check-metrics.sh` | Verifies numbers in docs match `metrics.yml` |
 | `tools/sync-metrics.sh` | Propagates `metrics.yml` values into all doc references |
 | `tools/verify-cascade.sh` | Full check: dates, metrics, staleness, consistency |
-| `tools/init-project.sh` | Scaffolds your project on first run (called by the wizard) |
 | `tools/setup-hooks.sh` | Installs the git pre-commit hook |
-| `.claude/commands/distill.md` | The `/distill` slash command for compressing long docs |
 | `.githooks/pre-commit` | Runs verify-cascade on every commit |
 
 ## Adapting to your CLI tool
@@ -110,6 +154,8 @@ Claude Code reads `CLAUDE.md` and `.claude/commands/` automatically. For other t
 
 - **Cursor:** copy `CLAUDE.md` content into `.cursorrules`
 - **Anything else:** load `CLAUDE.md` as your system prompt and replicate the slash commands as snippets
+
+Note: The `/good-morning`, `/wrap-up`, and `/distill` commands are Claude Code slash commands (stored in `.claude/commands/`). If you're using a different tool, you'll need to adapt them to your tool's command system or simply paste the instructions when needed.
 
 ## Auto-sync for metrics
 

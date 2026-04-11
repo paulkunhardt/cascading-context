@@ -6,7 +6,7 @@ You are helping manage an interconnected documentation system. Every document st
 
 ## Onboarding Wizard
 
-**Trigger:** If the file `.cascading-context-initialized` does NOT exist in the repo root, run this wizard before doing anything else.
+**Trigger:** If the file `.cascading-context-initialized` does NOT exist in the repo root, run this wizard before doing anything else. A hook in `.claude/settings.json` will remind you on every prompt until onboarding is complete.
 
 ### Steps
 
