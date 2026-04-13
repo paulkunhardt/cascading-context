@@ -4,11 +4,11 @@ Is a simple markdown-based local database for isolated projects where people who
 
 ## Why?
 
-This naturally evolved during a 3-week validation sprint. Timeboxed, clear focussed tasks, new content every day. If you can record and transcribe every relevant meeting, web research, outreach replies, new hypotheses to log, metrics, etc. then dumping all of that into Claude Code can be an amazing way to organize the entire project. This will inevitably lead to too much context, stale facts and lots of duplicates.
+This naturally evolved during a 3-week validation sprint for a startup idea. Timeboxed, clear focussed tasks, new content every day. If you can record and transcribe every relevant meeting, web research, outreach replies, new hypotheses to log, metrics, etc. and then dump all of that into Claude Code, in theory it could turn into YOUR project manager, not the other way around. Without a system to manage all of this context, however, it will inevitably lead to context bloat, stale facts and lots of duplicates.
 
 I wanted a setup where:
 
-1. The LLM could pick up where it left off, with full context, every morning, so that I can brief ME and give ME tasks, not the other way around.
+1. The LLM could pick up where it left off, with just the right context, every morning, so that I can brief ME and give ME tasks.
 2. New information would flow into the right docs automatically, in a fixed order, so nothing got dropped.
 3. Stale numbers would get caught before they made it into a pitch deck.
 4. Old context could be compressed without losing anything, once docs got too long for the LLM to read efficiently.
