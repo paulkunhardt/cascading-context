@@ -62,6 +62,8 @@ That's it. The installer asks about your project and scaffolds everything. When 
 
 A LinkedIn outreach pipeline built for people running Sales Navigator. Track every connection request, InMail, follow-up, and reply in a single CSV — with built-in rate limit tracking to keep you under LinkedIn's weekly connection (100/week) and monthly InMail (99/month) caps so you don't get shadow-banned.
 
+**Honest disclaimer:** This is not full automation. LinkedIn will ban you for running bots that scrape your inbox or auto-detect replies. So the human-in-the-loop part is real — you tell Claude what happened each day: who replied, who accepted, who ghosted. In practice this means pasting in a few screenshots, dropping names into a text file, or just typing "Ernst replied, wants a call Thursday" in natural language. If you're already living in the CLI, it's 2 minutes of work. The system handles everything else — syncing metrics, updating the pipeline, generating your next blitz list, and tracking which templates actually convert.
+
 ### Install
 
 ```bash
@@ -88,10 +90,12 @@ npx create-battle-plan-outreach
 ### Daily workflow
 
 ```
-Morning:  node tools/outreach/daily-targets.js  → generates today's blitz checklist
-Day:      Send messages, tick checkboxes
-Evening:  node tools/outreach/flush-targets.js   → syncs everything back to CSV + metrics
+Morning:  node tools/outreach/daily-targets.js    → generates today's blitz checklist
+Day:      Send messages on LinkedIn, tick boxes    ← you do this manually
+Evening:  node tools/outreach/flush-targets.js     → syncs everything back to CSV + metrics
 ```
+
+**Between blitzes:** When someone replies or accepts your connection, tell Claude — paste a screenshot, type "Sarah replied, wants a call Friday", or drop names into `outreach/inbox/accepts.txt`. The system parses it and updates your pipeline. You can't automate reading LinkedIn's inbox without risking a ban, so this step stays manual. But it's fast — a few messages a day, not a chore.
 
 Claude handles the cascade from there — metrics.yml, battle plan, domain docs all update automatically.
 
