@@ -10,7 +10,12 @@
 ╚══════════════════════════════════════════════════════════════════╝
 ```
 
-A markdown-based context system for projects where people who poweruse Claude Code (or any other CLI-based LLM tool) and accumulate more context than fits in one conversation, can offload and structure their progress. The more isolated the context to one specific project the better.
+Turn Claude Code into your project manager. Built for founders validating a business idea — track every call transcript, outreach message, research finding, hypothesis, and metric in one structured system that Claude picks up fresh every morning. You brief it, it briefs you back.
+
+```bash
+npx create-battle-plan                  # scaffold your project
+npx create-battle-plan-outreach         # add the outreach pipeline (optional)
+```
 
 ## Why?
 
@@ -27,12 +32,14 @@ I use this every day and so far it's been a lot of fun.
 
 ## Who it's for
 
-This is for you if:
+**Primarily:** Founders, entrepreneurs, and solo operators validating a business idea. You're running a validation sprint — talking to potential customers, sending outreach, booking discovery calls, tracking hypotheses, iterating on your pitch. You accumulate a huge amount of context every day: call transcripts, LinkedIn conversations, research notes, outreach replies, competitor intel, metrics. Battle Plan keeps all of it structured so Claude can be your co-pilot across sessions.
 
-- You live inside Claude Code, Cursor, etc. and especially if you run LLMs via the CLI.
-- Your work is project based with a clear time horizon (a 3-week sprint, a 6-month research project, a quarter long deep dive)
+**Also great for** anyone running a focused project with lots of incoming information:
+
+- You live inside Claude Code, Cursor, etc. and especially if you run LLMs via the CLI
+- Your work is project-based with a clear time horizon (a 3-week sprint, a 6-month research project, a quarter-long deep dive)
 - You process a lot of input every day: meeting transcripts, web research, replies, notes, papers
-- You have specific targets you're trying to hit, like calls booked, papers read, customers signed, experiments run
+- You have specific targets you're trying to hit — calls booked, customers signed, experiments run, papers read
 - You've already hit the wall where your LLM session gets too long, starts forgetting things, or starts hallucinating older context
 
 ## Quick start
