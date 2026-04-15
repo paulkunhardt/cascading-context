@@ -59,7 +59,7 @@ That's it. The installer asks about your project and scaffolds everything. When 
 
 ## Outreach Add-on
 
-Track your LinkedIn outreach pipeline with a CSV-powered system that integrates directly with Battle Plan's cascade protocol. Leads go in, metrics come out automatically.
+A LinkedIn outreach pipeline built for people running Sales Navigator. Track every connection request, InMail, follow-up, and reply in a single CSV — with built-in rate limit tracking to keep you under LinkedIn's weekly connection (100/week) and monthly InMail (99/month) caps so you don't get shadow-banned.
 
 ### Install
 
@@ -71,7 +71,8 @@ npx create-battle-plan-outreach
 ### What you get
 
 - **`outreach/leads.csv`** — Single source of truth for every lead. 23 columns tracking the full pipeline from `new` → `dm_sent` → `replied` → `call_booked` → `call_done` → `verbal` → `paying`
-- **Daily blitz generator** — `node tools/outreach/daily-targets.js` creates a checklist of who to message today, sorted by priority, with template assignment and rate limit tracking
+- **Daily blitz generator** — `node tools/outreach/daily-targets.js` creates a checklist of who to message today, sorted by priority, with template assignment and LinkedIn rate limit warnings
+- **Rate limit safety** — Tracks connection requests per week and InMails per month against LinkedIn's limits. Warns you when you're approaching the cap so you don't get throttled or shadow-banned
 - **Three flush paths** — Tick checkboxes, write free-form updates, or drop LinkedIn URLs. Every path syncs metrics automatically
 - **Mermaid conversion dashboard** — Auto-generated funnel charts, role/size/country breakdowns, template A/B testing, and Kill/Keep/Scale verdicts per segment
 - **Template performance tracking** — See which outreach messages get the best accept, reply, and call rates
@@ -79,7 +80,8 @@ npx create-battle-plan-outreach
 ### Prerequisites
 
 - An existing Battle Plan project (`npx create-battle-plan` first)
-- A list of leads in any format (CSV, spreadsheet, or just names) — Claude helps you import them
+- A LinkedIn Sales Navigator account (the system is designed around Sales Nav's connection request + InMail workflow)
+- A list of leads in any format (CSV, spreadsheet, Sales Nav export, or just names) — Claude helps you import them
 - Optional: `ANTHROPIC_API_KEY` in `.env` for AI-powered free-form update parsing
 
 ### Daily workflow
