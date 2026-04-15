@@ -219,6 +219,16 @@ Full rules are in `CLAUDE.md` under "Compression Modes & Timestamping Rules".
 | `tools/setup-hooks.sh` | Installs the git pre-commit hook |
 | `.githooks/pre-commit` | Runs verify-cascade on every commit |
 
+## Viewing the files
+
+You can use Battle Plan without ever opening a markdown file. Claude is the UI: you talk to it, it reads and writes the docs, you never have to look at them directly.
+
+The one exception is the **outreach add-on**. The daily blitz checklist (`outreach/inbox/YYYY-MM-DD.md`) has checkboxes you tick as you send messages. For that you need something that renders markdown with interactive checkboxes:
+
+- **Obsidian** (recommended): Open the project folder as a vault. Checkboxes work natively, mermaid charts render inline, and the file tree gives you a nice overview of your docs. This is what I use.
+- **VS Code**: Install a markdown preview extension. Works fine, just not as clean.
+- **GitHub**: If you push your project, the markdown renders on GitHub too, including mermaid charts. But you can't tick checkboxes there.
+
 ## Adapting to your CLI tool
 
 Claude Code reads `CLAUDE.md` and `.claude/commands/` automatically. For other tools:
@@ -270,6 +280,14 @@ CASCADE_STRICT=0
 ## Demo content
 
 The repo ships with a fictional 3-week B2B SaaS validation sprint as demo content. Read through it to see what a fully populated cascade looks like, then run the onboarding wizard to replace it with your own project. The original demo gets preserved in `examples/startup-validation/`.
+
+## A note on rough edges
+
+This whole system was built on the fly during an actual validation sprint. I was building it while using it, not the other way around. Some things might not make sense for your specific use case, some scripts might assume a workflow that doesn't match yours, some docs might feel over-engineered for what you need.
+
+That's fine. Just tell Claude to change stuff. The whole point is that Claude understands the system (it reads `CLAUDE.md`) so you can say "this metric doesn't apply to me, remove it" or "I want to track X instead of Y" and it'll adapt.
+
+If you find something genuinely broken or have an improvement that would help others, please open a PR. This is better as a community thing.
 
 ## License
 
