@@ -291,6 +291,19 @@ if (require.main === module) {
     // Don't fail sync-metrics if dashboard generation fails
     if (!quiet) console.error('⚠️  Dashboard update failed:', e.message);
   }
+
+  // Chain: recalculate priorities based on fresh conversion data
+  try {
+    const recalcPath = path.join(__dirname, 'recalc-priority.js');
+    if (require('fs').existsSync(recalcPath) && !dryRun) {
+      require('child_process').execSync(
+        `node ${JSON.stringify(recalcPath)}`,
+        { stdio: quiet ? 'ignore' : 'inherit' }
+      );
+    }
+  } catch (e) {
+    if (!quiet) console.error('⚠️  Priority recalculation failed:', e.message);
+  }
 }
 
 // Export for use by other scripts

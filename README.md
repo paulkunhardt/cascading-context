@@ -77,6 +77,12 @@ npx create-battle-plan-outreach
 - **Daily blitz generator**: `node tools/outreach/daily-targets.js` creates a checklist of who to message today, sorted by priority, with template assignment and LinkedIn rate limit warnings
 - **Rate limit safety**: Tracks connection requests per week and InMails per month against LinkedIn's limits. Warns you when you're approaching the cap so you don't get throttled or shadow-banned
 - **Three flush paths**: Tick checkboxes, write free-form updates, or drop LinkedIn URLs. Every path syncs metrics automatically
+- **Data-driven priority scoring**: Priorities aren't static. After every flush, `recalc-priority.js` recomputes scores based on actual conversion rates per role, company type, country, and employee band. Leads that look like your best converters float to the top automatically
+- **Rejection feedback loop**: When you reject a lead in the blitz (`[x] reject: revenue too low`), the reason gets classified and penalizes similar unsent leads. The system gets more selective with every flush cycle
+- **InMail smart gating**: InMails are premium (99/month). The system only spends them on high-priority leads (p70+) with decision-maker titles, excluding dead-zone company types
+- **Follow-up cooldown**: 3-day minimum between follow-up messages to avoid over-messaging accepted connections
+- **Stale invitation tracking**: Pending connection requests that haven't been accepted get flagged for withdrawal in tiers (7 days for InMailed/excluded types, 14 days for everything else)
+- **Company type classification**: Automatic categorization of leads into segments (b2b-saas, fintech, healthtech, consulting, b2c, etc.) for conversion analysis
 - **Mermaid conversion dashboard**: Auto-generated funnel charts, role/size/country breakdowns, template A/B testing, and Kill/Keep/Scale verdicts per segment
 - **Template performance tracking**: See which outreach messages get the best accept, reply, and call rates
 
@@ -168,14 +174,16 @@ The loop looks like this:
 **With the outreach add-on**, `leads.csv` sits above `metrics.yml` as the true source of truth. The flush scripts scan the CSV, derive all numbers automatically, and then the normal cascade kicks in:
 
 ```
-  outreach activity ──→ leads.csv        ← single source of truth
+  outreach activity ──→ leads.csv            ← single source of truth
                             │
-                    flush-targets.js      ← (or flush-updates / flush-accepts)
+                    flush-targets.js          ← (or flush-updates / flush-accepts)
                             │
-                    sync-metrics.js       ← derives numbers from CSV
-                       /         \
-               metrics.yml    icp-conversion.md
-                    │            (mermaid dashboard)
+                    sync-metrics.js           ← derives numbers from CSV
+                       /    |    \
+               metrics.yml  │  icp-conversion.md
+                    │       │    (mermaid dashboard)
+                    │  recalc-priority.js     ← rescores unsent leads
+                    │
              battle-plan.md
                /    |    \
          market  validation  strategy ...
@@ -183,7 +191,7 @@ The loop looks like this:
               verify-cascade.sh ✓
 ```
 
-You never update metrics by hand. You tell the LLM what happened (or tick checkboxes in the blitz list), run the flush script, and everything cascades from there.
+One command processes the blitz, updates all metrics, regenerates the dashboard, and recalculates priorities for the entire unsent pool. You never update numbers by hand.
 
 ## Compression modes
 

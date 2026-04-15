@@ -138,20 +138,35 @@ function parseChecked(md) {
 
       // Look ahead for reject checkbox
       let rejectChecked = false;
+      let rejectReason = '';
       for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
         if (lines[j].match(/^- \[/)) break;
-        const rej = lines[j].match(/^\s+- \[([xX])\]\s+reject/i);
-        if (rej) rejectChecked = true;
+        const rej = lines[j].match(/^\s+- \[([xX])\]\s+reject(?::\s*(.+))?/i);
+        if (rej) {
+          rejectChecked = true;
+          rejectReason = rej[2] ? rej[2].trim() : '';
+        }
       }
 
       if (rejectChecked) {
-        rejected.push({ name, company, url });
+        rejected.push({ name, company, url, reason: rejectReason });
       } else if (parentChecked) {
         checked.push({ name, company, url, template, title, country, employees, revenue, isFollowup, isInmail });
       }
     }
   }
   return { checked, rejected };
+}
+
+function classifyRejection(reason) {
+  if (!reason) return 'rej-manual';
+  const r = reason.toLowerCase();
+  if (/revenue|too small|tiny|size/.test(r)) return 'rej-revenue';
+  if (/role|title|wrong person|not decision/.test(r)) return 'rej-role';
+  if (/employee|headcount|too few|too many/.test(r)) return 'rej-company-size';
+  if (/not icp|wrong fit|irrelevant|not target/.test(r)) return 'rej-not-icp';
+  if (/competitor|vendor|sells to us/.test(r)) return 'rej-competitor';
+  return 'rej-manual';
 }
 
 function findLead(rows, item) {
@@ -291,7 +306,11 @@ function main() {
     if (!lead) continue;
     if (lead.status === 'new') {
       lead.status = 'dead';
-      lead.notes = `Rejected in blitz ${today} — not ICP on manual review | ${lead.notes || ''}`.replace(/\| $/, '');
+      const rejTag = classifyRejection(item.reason);
+      const tags = (lead.tags || '').split(',').filter(Boolean);
+      if (!tags.includes(rejTag)) tags.push(rejTag);
+      lead.tags = tags.join(',');
+      lead.notes = `Rejected ${today}${item.reason ? ': ' + item.reason : ''} | ${lead.notes || ''}`.replace(/\| $/, '');
       rejectedMatched.push(lead);
     }
   }

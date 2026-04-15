@@ -60,6 +60,12 @@ const newPicks = newPool.slice(0, newCount);
 let followupPool = rows.filter(r => {
   if (r.status !== 'dm_sent') return false;
   if (!(r.tags || '').includes('accepted')) return false;
+  // 3-day cooldown: don't show if last touch was < 3 days ago
+  const lastTouch = r.followed_up_at || r.contacted_at || '';
+  if (lastTouch) {
+    const daysSince = Math.floor((new Date(today) - new Date(lastTouch)) / 86400000);
+    if (daysSince < 3) return false;
+  }
   return true;
 });
 followupPool.sort((a, b) => {
@@ -85,7 +91,38 @@ const inmailPool = rows.filter(r => {
   if (pb !== pa) return pb - pa;
   return (a.contacted_at || '').localeCompare(b.contacted_at || '');
 });
-const inmailPicks = inmailPool.slice(0, inmailCount);
+// Smart gating: prefer high-priority, good-role leads for premium InMail channel
+const INMAIL_MIN_PRIORITY = 70;
+const INMAIL_PREFERRED_ROLES = /\b(ceo|founder|co-founder|cto|coo|cfo|chief|vp|vice president|director|head of|managing director|owner)\b/i;
+
+// Read excluded types from templates.json
+let inmailExcludedTypes = new Set();
+if (fs.existsSync(TEMPLATES_PATH)) {
+  const tplConfig = JSON.parse(fs.readFileSync(TEMPLATES_PATH, 'utf8'));
+  if (tplConfig.excluded_company_types) {
+    inmailExcludedTypes = new Set(tplConfig.excluded_company_types);
+  }
+}
+
+// Apply smart gating
+let inmailFiltered = inmailPool.filter(r => {
+  const p = parseInt(r.priority || '0') || 0;
+  if (p < INMAIL_MIN_PRIORITY) return false;
+  if (inmailExcludedTypes.has((r.company_type || '').toLowerCase())) return false;
+  return true;
+});
+
+// Sort: preferred roles first, then by priority
+inmailFiltered.sort((a, b) => {
+  const aRole = INMAIL_PREFERRED_ROLES.test(a.title || '') ? 1 : 0;
+  const bRole = INMAIL_PREFERRED_ROLES.test(b.title || '') ? 1 : 0;
+  if (bRole !== aRole) return bRole - aRole;
+  const pa = parseInt(a.priority || '0') || 0;
+  const pb = parseInt(b.priority || '0') || 0;
+  return pb - pa;
+});
+
+const inmailPicks = inmailFiltered.slice(0, inmailCount);
 
 // --- Weekly limit tracking ---
 const now = new Date();
@@ -169,7 +206,7 @@ lines.push('');
 const totalActions = newPicks.length + followupPicks.length + inmailPicks.length;
 lines.push(`**Target: ${newPicks.length} new DMs + ${followupPicks.length} follow-ups + ${inmailPicks.length} InMails = ${totalActions} actions.** Tick the box as you send. Run \`node tools/outreach/flush-targets.js\` when done.`);
 lines.push('');
-lines.push(`Pools: ${newPool.length} new · ${followupPool.length} follow-up · ${inmailPool.length} InMail candidates`);
+lines.push(`Pools: ${newPool.length} new · ${followupPool.length} follow-up · ${inmailPool.length} InMail candidates (${inmailFiltered.length} qualified)`);
 lines.push('');
 // Limits
 const connPct = Math.round(thisWeekConnections / 100 * 100);
