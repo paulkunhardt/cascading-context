@@ -12,6 +12,10 @@
 //
 // "Pending" = status=dm_sent, no 'accepted' tag, has contacted_at, channel=connection
 //
+// Recent-touch buffer: any outbound touch (contacted_at / followed_up_at / replied_at)
+// within the last RECENT_TOUCH_DAYS (default 3) overrides staleness. This protects
+// "last-shot InMail" and recent follow-up actions from being withdrawn prematurely.
+//
 // The --withdraw flag sets status='withdrawn' and prepends a note. This removes them
 // from all future pipeline counts and blitz docs. They can be re-contacted later
 // if you want (just set status back to 'new').
@@ -24,6 +28,7 @@ const TEMPLATES_PATH = path.resolve(__dirname, 'templates.json');
 const TIER1_DAYS = 7;   // pending + InMail → withdraw after 7d
 const TIER2_DAYS = 7;   // pending + excluded ICP type → withdraw after 7d
 const TIER3_DAYS = 14;  // pending + any type → withdraw after 14d
+const RECENT_TOUCH_DAYS = 3;  // any outbound touch within this window overrides staleness
 
 // Read excluded company types from templates.json (configurable per project)
 let EXCLUDED_TYPES = new Set(['b2c', 'consulting']);
@@ -40,6 +45,15 @@ const today = new Date().toISOString().slice(0, 10);
 const todayMs = new Date(today).getTime();
 const daysSince = (d) => Math.floor((todayMs - new Date(d).getTime()) / 86400000);
 
+// Minimum days since the most recent outbound touch (contacted / followed-up / replied).
+// Returns Infinity if the lead has never been touched — callers should then skip the buffer.
+const daysSinceLastTouch = (r) => {
+  const candidates = [r.contacted_at, r.followed_up_at, r.replied_at]
+    .filter(Boolean)
+    .map(daysSince);
+  return candidates.length ? Math.min(...candidates) : Infinity;
+};
+
 const doWithdraw = process.argv.includes('--withdraw');
 
 function findStaleInvitations(leads) {
@@ -54,6 +68,7 @@ function findStaleInvitations(leads) {
   const tier1 = []; // pending + also InMailed + 7d+
   const tier2 = []; // pending + excluded company type + 7d+
   const tier3 = []; // pending + 14d+
+  const buffered = []; // would otherwise be stale, but had a recent outbound touch
 
   // Check if lead was also InMailed (has a note mentioning inmail or channel=inmail on a related record)
   const wasInmailed = (r) => {
@@ -63,6 +78,20 @@ function findStaleInvitations(leads) {
 
   for (const r of pending) {
     const age = daysSince(r.contacted_at);
+    const wouldBeStale =
+      (wasInmailed(r) && age >= TIER1_DAYS) ||
+      (EXCLUDED_TYPES.has(r.company_type) && age >= TIER2_DAYS) ||
+      (age >= TIER3_DAYS);
+    if (!wouldBeStale) continue;
+
+    // Recent-touch buffer: any outbound touch (contacted / followed-up / replied)
+    // within the last RECENT_TOUCH_DAYS overrides staleness. This prevents
+    // withdrawal right after a follow-up or last-shot InMail.
+    if (daysSinceLastTouch(r) < RECENT_TOUCH_DAYS) {
+      buffered.push({ ...r, age });
+      continue;
+    }
+
     if (wasInmailed(r) && age >= TIER1_DAYS) {
       tier1.push({ ...r, age, tier: 1 });
     } else if (EXCLUDED_TYPES.has(r.company_type) && age >= TIER2_DAYS) {
@@ -72,13 +101,13 @@ function findStaleInvitations(leads) {
     }
   }
 
-  return { pending, tier1, tier2, tier3 };
+  return { pending, tier1, tier2, tier3, buffered };
 }
 
 // CLI entry point
 if (require.main === module) {
   const leads = load();
-  const { pending, tier1, tier2, tier3 } = findStaleInvitations(leads);
+  const { pending, tier1, tier2, tier3, buffered } = findStaleInvitations(leads);
   const all = [...tier1, ...tier2, ...tier3];
 
   // Report
@@ -91,6 +120,9 @@ if (require.main === module) {
     console.log(`   Avg age: ${avgAge}d`);
   }
   console.log(`   Excluded company types: ${[...EXCLUDED_TYPES].join(', ')}`);
+  if (buffered.length > 0) {
+    console.log(`   🕐 Buffered (recent touch < ${RECENT_TOUCH_DAYS}d, skipped): ${buffered.length}`);
+  }
   console.log('');
 
   function printTier(name, desc, items) {

@@ -21,7 +21,7 @@ const OUTPUT = path.join(ROOT, 'docs/analysis/icp-conversion.md');
 // These still appear in the dashboard but get "Excluded" verdict, not "Kill".
 const EXCLUDED_TYPES = new Set();  // Configure via templates.json excluded_company_types
 
-// Company types with 0% conversion that we KEEP anyway (Paul override).
+// Company types with 0% conversion that we keep anyway (manual override).
 // Data-driven "Kill" verdict is suppressed for these — shows "Keep (manual)" instead.
 const KEEP_OVERRIDE = new Set();   // No manual overrides in generic template
 
@@ -426,14 +426,10 @@ function generateMarkdown(data) {
 
   // Country insight
   const bestCountry = countryForChart.sort((a, b) => pct(b[1].replied, b[1].sent) - pct(a[1].replied, a[1].sent))[0];
-  const germanyData = byCountry['Germany'];
   let countryInsight = '';
   if (bestCountry) {
     countryInsight += `${bestCountry[0]} leads with ${fmtPct(bestCountry[1].replied, bestCountry[1].sent)} reply rate`;
     if (bestCountry[1].call > 0) countryInsight += ` and ${fmtPct(bestCountry[1].call, bestCountry[1].sent)} call rate`;
-    if (germanyData && bestCountry[0] !== 'Germany') {
-      countryInsight += ` — surprisingly better than Germany (${fmtPct(germanyData.replied, germanyData.sent)} reply)`;
-    }
     countryInsight += '. ';
   }
   const deadCountries = countryForChart.filter(([, v]) => v.replied === 0).map(([k]) => k);
@@ -702,9 +698,11 @@ function generateMarkdown(data) {
     findings.push(`**Template ${worstTpl[0]} underperforms** — high volume (${byTemplate[worstTpl[0]].sent}) but zero calls. The messaging likely misses the mark`);
   }
 
-  // Country comparison
-  if (bestCountry && germanyData && bestCountry[0] !== 'Germany' && germanyData.sent >= 10) {
-    findings.push(`**${bestCountry[0]} outperforms Germany** — ${fmtPct(bestCountry[1].replied, bestCountry[1].sent)} vs ${fmtPct(germanyData.replied, germanyData.sent)} reply rate. DACH-first assumption needs revisiting`);
+  // Country comparison: flag when a non-dominant country outperforms the largest-volume country
+  const volumeSortedCountries = Object.entries(byCountry).filter(([k, v]) => v.sent >= 10 && k !== 'Unknown').sort((a, b) => b[1].sent - a[1].sent);
+  const dominantCountry = volumeSortedCountries[0];
+  if (bestCountry && dominantCountry && bestCountry[0] !== dominantCountry[0] && dominantCountry[1].sent >= 10) {
+    findings.push(`**${bestCountry[0]} outperforms ${dominantCountry[0]}** — ${fmtPct(bestCountry[1].replied, bestCountry[1].sent)} vs ${fmtPct(dominantCountry[1].replied, dominantCountry[1].sent)} reply rate. Consider rebalancing outreach mix`);
   }
 
   // Accepted-but-silent opportunity
@@ -769,7 +767,7 @@ function generateMarkdown(data) {
   if (worstTpl && byTemplate[worstTpl[0]] && byTemplate[worstTpl[0]].call === 0 && byTemplate[worstTpl[0]].sent >= 10) {
     steps.push(`**Rework Template ${worstTpl[0]}:** Either retire or A/B test a new version — zero calls from ${byTemplate[worstTpl[0]].sent} sends is unacceptable`);
   }
-  if (bestCountry && bestCountry[0] !== 'Germany') {
+  if (bestCountry && bestCountry[1].sent >= 10) {
     steps.push(`**Double down on ${bestCountry[0]}:** Reply rate ${fmtPct(bestCountry[1].replied, bestCountry[1].sent)} — consider localized templates`);
   }
   if (totalAcceptedSilent > 0) {

@@ -6,7 +6,7 @@ const LEADS_PATH = path.resolve(__dirname, '../../../outreach/leads.csv');
 const HEADERS = [
   'linkedin_url','first_name','last_name','title','company','domain',
   'industry','company_type','employees','revenue','country','email','source','tags','status','priority',
-  'contacted_at','replied_at','call_at','followed_up_at','channel','template','notes'
+  'contacted_at','replied_at','call_at','followed_up_at','channel','template','inmail_template','notes'
 ];
 
 const VALID_STATUS = new Set([

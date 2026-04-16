@@ -15,6 +15,17 @@ const ARCHIVE = path.join(ROOT, 'outreach/archive');
 const BATTLE = path.join(ROOT, 'docs/battle-plan.md');
 const TEMPLATES_PATH = path.resolve(__dirname, 'templates.json');
 
+function classifyRejection(reason) {
+  if (!reason) return 'rej-manual';
+  const r = reason.toLowerCase();
+  if (/revenue|too small|tiny|size/.test(r)) return 'rej-revenue';
+  if (/role|title|wrong person|not decision/.test(r)) return 'rej-role';
+  if (/employee|headcount|too few|too many/.test(r)) return 'rej-company-size';
+  if (/not icp|wrong fit|irrelevant|not target/.test(r)) return 'rej-not-icp';
+  if (/competitor|vendor|sells to us/.test(r)) return 'rej-competitor';
+  return 'rej-manual';
+}
+
 function findTodayFile() {
   const f = path.join(INBOX, `${today}.md`);
   if (fs.existsSync(f)) return f;
@@ -45,9 +56,6 @@ function parseChecked(md) {
       // Skip if not in a lead table, or separator row
       if (!inLeadTable || !line.startsWith('|') || line.match(/^\|\s*-/)) continue;
       // Split on | but keep empty cells (don't filter(Boolean))
-      // Line: "| x | [Name](url) | meta | 100 | B |   |"
-      // split('|') → ['', ' x ', ' [Name](url) ', ' meta ', ' 100 ', ' B ', '   ', '']
-      // Drop first and last empty strings from leading/trailing pipes
       const raw = line.split('|');
       const cells = raw.slice(1, raw.length - 1).map(c => c.trim());
       if (cells.length < 6) continue;
@@ -69,7 +77,10 @@ function parseChecked(md) {
         template = cells[4] || '';
         rejCell = cells[5] || '';
       }
-      const rej = rejCell.toLowerCase() === 'x';
+      // Reject cell: "x" for bare reject, or "x: reason text" for rejection with reason
+      const rejMatch = rejCell.match(/^x(?::\s*(.+))?$/i);
+      const rej = !!rejMatch;
+      const rejReason = rej ? (rejMatch[1] || '').trim() : '';
 
       // Extract name and URL from lead cell: [Name](url) or just Name
       let name = '', url = '';
@@ -86,7 +97,7 @@ function parseChecked(md) {
       const company = metaParts.length >= 2 ? metaParts[1].replace(/_\[.*\]_/, '').trim() : '';
 
       if (rej) {
-        rejected.push({ name, company, url });
+        rejected.push({ name, company, url, reason: rejReason });
       } else if (sent) {
         checked.push({ name, company, url, template, employees, revenue });
       }
@@ -98,6 +109,57 @@ function parseChecked(md) {
     const lines = md.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
+      // Match withdrawal format: - [x] 🗑️ [Name](url) · Title · Company · Country · emp:X · rev:Y · type:Z · sent: 2026-03-31 (15d, tier 3) · pN
+      const withdrawMatch = line.match(/^- \[([xX ])\]\s+🗑️\s+/);
+      if (withdrawMatch) {
+        const isChecked = withdrawMatch[1].toLowerCase() === 'x';
+        // Extract name and URL
+        let name = '', url = '';
+        const linkMatch = line.match(/\[([^\]]+)\]\(([^)]+)\)/);
+        if (linkMatch) { name = linkMatch[1].trim(); url = linkMatch[2].replace(/\/$/, '').trim(); }
+        else { const boldMatch = line.match(/\*\*([^*]+)\*\*/); if (boldMatch) name = boldMatch[1].trim(); }
+        // Extract segments: after "🗑️ " or "🗑️ [Name](url) · "
+        const afterIcon = line.replace(/^- \[[xX ]\]\s+🗑️\s+/, '');
+        const segments = afterIcon.split('·').map(s => s.trim());
+        // segments[0] = name link; [1] = title; [2] = company; [3] = country; rest = emp/rev/type/sent/p
+        const title = segments[1] || '';
+        let company = segments[2] || '';
+        const country = (segments[3] || '').replace(/emp:.*/, '').trim();
+        // Extract editable metadata from inline markers (can appear anywhere on line)
+        const empMatch = line.match(/emp:(\d+)/);
+        const revMatch = line.match(/rev:([^\s·]+)/);
+        const typeMatch = line.match(/type:([^\s·]+)/);
+        const employees = empMatch ? empMatch[1] : '';
+        const revenue = revMatch && revMatch[1] !== '' ? revMatch[1] : '';
+        const company_type = typeMatch && typeMatch[1] !== '' ? typeMatch[1] : '';
+        // Tier and age
+        const tierMatch = line.match(/\((\d+)d,\s*tier\s+(\d+)\)/);
+        const age = tierMatch ? parseInt(tierMatch[1]) : 0;
+        const tier = tierMatch ? parseInt(tierMatch[2]) : 0;
+        // Look ahead for inmail-instead checkbox (replaces the old reject checkbox)
+        let inmailInstead = false;
+        let inmailTemplate = '';
+        for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
+          if (lines[j].match(/^- \[/)) break;
+          // - [x] 📧 `B` inmail instead (last shot)
+          const im = lines[j].match(/^\s+- \[([xX])\]\s+📧\s+`([^`]+)`\s+inmail\s+instead/i);
+          if (im) { inmailInstead = true; inmailTemplate = im[2].trim(); }
+        }
+        if (inmailInstead) {
+          // Override: don't withdraw, mark as InMail sent today instead
+          checked.push({ name, company, url, template: inmailTemplate, title, country, employees, revenue, company_type, isInmail: true, isWithdrawalOverride: true });
+        } else if (isChecked) {
+          // Normal withdrawal — still honor any inline metadata corrections
+          checked.push({ name, company, url, isWithdrawal: true, withdrawAge: age, withdrawTier: tier, title, country, employees, revenue, company_type });
+        } else {
+          // Main unchecked and no inmail → keep as-is, but still apply metadata corrections if present
+          // (Someone may have fixed type:consulting → type:b2b-saas and wants the data corrected even without acting today.)
+          if (title || country || employees || revenue || company_type) {
+            checked.push({ name, company, url, isMetadataOnly: true, title, country, employees, revenue, company_type });
+          }
+        }
+        continue;
+      }
       // Match follow-up format: - [x] 🔄 [Name](url) · ...
       const followupMatch = line.match(/^- \[([xX ])\]\s+🔄\s+/);
       // Match InMail format: - [x] 📧 `B` [Name](url) · ...
@@ -130,43 +192,37 @@ function parseChecked(md) {
       let company = segments.length > segStart + 1 ? segments[segStart + 1].trim() : '';
       const country = segments.length > segStart + 2 ? segments[segStart + 2].replace(/emp:.*/, '').trim() : '';
 
-      // Extract emp and rev from inline markers
+      // Extract emp, rev, and type from inline markers
       const empMatch = line.match(/emp:(\d+)/);
       const revMatch = line.match(/rev:([^\s·]+)/);
+      const typeMatch = line.match(/type:([^\s·]+)/);
       const employees = empMatch ? empMatch[1] : '';
       const revenue = revMatch && revMatch[1] !== '' ? revMatch[1] : '';
+      const company_type = typeMatch && typeMatch[1] !== '' ? typeMatch[1] : '';
 
-      // Look ahead for reject checkbox
+      // Look ahead for reject + withdraw-now sub-checkboxes
+      // Precedence: reject > withdraw-now > parent (send).
       let rejectChecked = false;
       let rejectReason = '';
-      for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
+      let withdrawNowChecked = false;
+      for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
         if (lines[j].match(/^- \[/)) break;
         const rej = lines[j].match(/^\s+- \[([xX])\]\s+reject(?::\s*(.+))?/i);
-        if (rej) {
-          rejectChecked = true;
-          rejectReason = rej[2] ? rej[2].trim() : '';
-        }
+        if (rej) { rejectChecked = true; rejectReason = (rej[2] || '').trim(); }
+        const wd = lines[j].match(/^\s+- \[([xX])\]\s+🗑️\s+withdraw\s+connection/i);
+        if (wd) { withdrawNowChecked = true; }
       }
 
       if (rejectChecked) {
         rejected.push({ name, company, url, reason: rejectReason });
+      } else if (withdrawNowChecked) {
+        checked.push({ name, company, url, isWithdrawal: true, withdrawAge: 0, withdrawTier: 0, title, country, employees, revenue, company_type, isManualWithdraw: true });
       } else if (parentChecked) {
-        checked.push({ name, company, url, template, title, country, employees, revenue, isFollowup, isInmail });
+        checked.push({ name, company, url, template, title, country, employees, revenue, company_type, isFollowup, isInmail });
       }
     }
   }
   return { checked, rejected };
-}
-
-function classifyRejection(reason) {
-  if (!reason) return 'rej-manual';
-  const r = reason.toLowerCase();
-  if (/revenue|too small|tiny|size/.test(r)) return 'rej-revenue';
-  if (/role|title|wrong person|not decision/.test(r)) return 'rej-role';
-  if (/employee|headcount|too few|too many/.test(r)) return 'rej-company-size';
-  if (/not icp|wrong fit|irrelevant|not target/.test(r)) return 'rej-not-icp';
-  if (/competitor|vendor|sells to us/.test(r)) return 'rej-competitor';
-  return 'rej-manual';
 }
 
 function findLead(rows, item) {
@@ -184,7 +240,7 @@ function findLead(rows, item) {
 
 // Metrics are now derived by sync-metrics.js — no manual bumping needed
 
-function appendBattlePlanLog(count, leads) {
+function appendBattlePlanLog(count, leads, withdrawnCount = 0) {
   const text = fs.readFileSync(BATTLE, 'utf8');
   // Find today's day section. Format: "## Day N — YYYY-MM-DD" or similar.
   const lines = text.split('\n');
@@ -205,9 +261,10 @@ function appendBattlePlanLog(count, leads) {
     return false;
   }
   const sample = leads.slice(0, 5).map(l => `${l.first_name} ${l.last_name} (${l.company})`).join(', ');
+  const withdrawNote = withdrawnCount > 0 ? ` Withdrew ${withdrawnCount} stale invitations.` : '';
   const note = [
     '',
-    `> **[outreach flush ${new Date().toTimeString().slice(0, 5)}]** Sent ${count} DMs via blitz checklist. Sample: ${sample}${leads.length > 5 ? `, +${leads.length - 5} more` : ''}.`,
+    `> **[outreach flush ${new Date().toTimeString().slice(0, 5)}]** Sent ${count} DMs via blitz checklist.${withdrawNote} Sample: ${sample}${leads.length > 5 ? `, +${leads.length - 5} more` : ''}.`,
     '',
   ];
   lines.splice(insertIdx, 0, ...note);
@@ -223,6 +280,9 @@ function updateTemplateStats(rows) {
   }
   // Reset sent/replies counts, preserve text
   for (const id of Object.keys(templates)) {
+    // Skip config keys (non-template entries)
+    if (!templates[id] || typeof templates[id] !== 'object') continue;
+    if (typeof templates[id].text !== 'string') continue;
     templates[id].sent = 0;
     templates[id].replies = 0;
     templates[id].calls = 0;
@@ -263,24 +323,74 @@ function main() {
 
   const rows = load();
 
+  // Helper: apply inline metadata corrections to a lead row and log what changed
+  function applyMetadataEdits(lead, item) {
+    const changes = [];
+    if (item.title && item.title !== lead.title) { changes.push(`title`); lead.title = item.title; }
+    if (item.country && item.country !== lead.country) { changes.push(`country`); lead.country = item.country; }
+    if (item.employees && item.employees !== lead.employees) { changes.push(`emp`); lead.employees = item.employees; }
+    if (item.revenue && item.revenue !== lead.revenue) { changes.push(`rev`); lead.revenue = item.revenue; }
+    if (item.company_type && item.company_type !== lead.company_type) { changes.push(`type:${lead.company_type}→${item.company_type}`); lead.company_type = item.company_type; }
+    return changes;
+  }
+
+  // Process withdrawals first (separate from sent tally)
+  const withdrawn = [];
+  const withdrawUnmatched = [];
+  const metadataOnly = [];
+  const nonWithdrawalChecked = [];
+  for (const item of checked) {
+    if (item.isWithdrawal) {
+      const lead = findLead(rows, item);
+      if (!lead) { withdrawUnmatched.push(item); continue; }
+      const mdChanges = applyMetadataEdits(lead, item);
+      lead.status = 'withdrawn';
+      const mdNote = mdChanges.length ? ` [corrected ${mdChanges.join(',')}]` : '';
+      const reason = item.isManualWithdraw
+        ? `manual withdraw during pipeline review`
+        : `stale ${item.withdrawAge}d, tier ${item.withdrawTier}`;
+      lead.notes = `Withdrawn ${today} (${reason})${mdNote} | ${lead.notes || ''}`.replace(/\| $/, '');
+      withdrawn.push(lead);
+    } else if (item.isMetadataOnly) {
+      const lead = findLead(rows, item);
+      if (!lead) continue;
+      const mdChanges = applyMetadataEdits(lead, item);
+      if (mdChanges.length) {
+        lead.notes = `Metadata corrected ${today}: ${mdChanges.join(', ')} | ${lead.notes || ''}`.replace(/\| $/, '');
+        metadataOnly.push(lead);
+      }
+    } else {
+      nonWithdrawalChecked.push(item);
+    }
+  }
+
   // Process sent leads
   const matched = [];
   const followedUp = [];
   const inmailed = [];
   const unmatched = [];
-  for (const item of checked) {
+  for (const item of nonWithdrawalChecked) {
     const lead = findLead(rows, item);
     if (!lead) { unmatched.push(item); continue; }
     if (item.isFollowup) {
       // Follow-up: update followed_up_at, don't change status
       lead.followed_up_at = today;
       lead.notes = `Follow-up sent ${today} | ${lead.notes || ''}`.replace(/\| $/, '');
+      if (item.company_type && item.company_type !== lead.company_type) lead.company_type = item.company_type;
       followedUp.push(lead);
     } else if (item.isInmail) {
-      // InMail: mark channel as inmail, update template if provided
+      // InMail: mark channel as inmail, stamp followed_up_at so the 3-day
+      // recent-touch buffer protects this lead from premature withdrawal.
+      // Dual-template model: InMail template goes to `inmail_template`, NEVER
+      // overwrites `template` (which tracks the original connection template).
+      // This preserves proper attribution when a user switches B→C for an InMail.
       lead.channel = 'inmail';
-      lead.notes = `InMail sent ${today} | ${lead.notes || ''}`.replace(/\| $/, '');
-      if (item.template) lead.template = item.template;
+      lead.followed_up_at = today;
+      const wasOverride = item.isWithdrawalOverride;
+      const prefix = wasOverride ? `InMail sent ${today} (last-shot override of withdraw)` : `InMail sent ${today}`;
+      lead.notes = `${prefix} | ${lead.notes || ''}`.replace(/\| $/, '');
+      if (item.template) lead.inmail_template = item.template;
+      applyMetadataEdits(lead, item);
       inmailed.push(lead);
     } else if (lead.status === 'new') {
       lead.status = 'dm_sent';
@@ -292,6 +402,7 @@ function main() {
       if (item.country && item.country !== lead.country) lead.country = item.country;
       if (item.employees && item.employees !== lead.employees) lead.employees = item.employees;
       if (item.revenue) lead.revenue = item.revenue;
+      if (item.company_type && item.company_type !== lead.company_type) lead.company_type = item.company_type;
       matched.push(lead);
     } else {
       // Already past new, no-op but record
@@ -299,18 +410,26 @@ function main() {
     }
   }
 
-  // Process rejected leads — mark as dead with note
+  // Process rejected leads — mark as dead with note and reason tag
   const rejectedMatched = [];
   for (const item of rejected) {
     const lead = findLead(rows, item);
     if (!lead) continue;
     if (lead.status === 'new') {
       lead.status = 'dead';
-      const rejTag = classifyRejection(item.reason);
-      const tags = (lead.tags || '').split(',').filter(Boolean);
-      if (!tags.includes(rejTag)) tags.push(rejTag);
-      lead.tags = tags.join(',');
-      lead.notes = `Rejected ${today}${item.reason ? ': ' + item.reason : ''} | ${lead.notes || ''}`.replace(/\| $/, '');
+      const reason = item.reason || '';
+      if (reason) {
+        lead.notes = `Rejected ${today}: ${reason} | ${lead.notes || ''}`.replace(/\| $/, '');
+        const reasonTag = classifyRejection(reason);
+        const tags = (lead.tags || '').split(',').filter(Boolean);
+        if (!tags.includes(reasonTag)) tags.push(reasonTag);
+        lead.tags = tags.join(',');
+      } else {
+        lead.notes = `Rejected in blitz ${today} — not ICP on manual review | ${lead.notes || ''}`.replace(/\| $/, '');
+        const tags = (lead.tags || '').split(',').filter(Boolean);
+        if (!tags.includes('rej-manual')) tags.push('rej-manual');
+        lead.tags = tags.join(',');
+      }
       rejectedMatched.push(lead);
     }
   }
@@ -321,7 +440,7 @@ function main() {
   updateTemplateStats(rows);
 
   const newDms = matched.filter(l => l.contacted_at === today).length;
-  appendBattlePlanLog(newDms, matched);
+  appendBattlePlanLog(newDms, matched, withdrawn.length);
 
   // Derive all metrics from CSV (single source of truth)
   syncMetrics();
@@ -332,13 +451,16 @@ function main() {
   fs.renameSync(file, archived);
 
   console.log(`\n✓ Flushed ${newDms} DMs (${matched.length} checked, ${matched.length - newDms} already past new)`);
+  if (withdrawn.length) console.log(`  🗑️ Withdrew ${withdrawn.length} stale invitations`);
   if (followedUp.length) console.log(`  🔄 Followed up on ${followedUp.length} accepted leads (followed_up_at → ${today})`);
-  if (inmailed.length) console.log(`  📧 InMailed ${inmailed.length} leads (channel → inmail)`);
+  if (inmailed.length) console.log(`  📧 InMailed ${inmailed.length} leads (channel → inmail, followed_up_at → ${today})`);
+  if (metadataOnly.length) console.log(`  ✏️  Corrected metadata on ${metadataOnly.length} leads (kept pending)`);
   if (rejectedMatched.length) console.log(`  ❌ Rejected ${rejectedMatched.length} leads (marked dead)`);
   console.log(`  Archived → ${path.relative(ROOT, archived)}`);
-  if (unmatched.length) {
-    console.log(`\n⚠️  ${unmatched.length} checked items did not match any lead:`);
-    unmatched.forEach(u => console.log(`  - ${u.name} (${u.company})`));
+  const allUnmatched = [...unmatched, ...withdrawUnmatched];
+  if (allUnmatched.length) {
+    console.log(`\n⚠️  ${allUnmatched.length} checked items did not match any lead:`);
+    allUnmatched.forEach(u => console.log(`  - ${u.name} (${u.company})`));
   }
 }
 

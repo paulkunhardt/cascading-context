@@ -93,7 +93,6 @@ function deriveMetrics(rows) {
   for (const r of rows) {
     const s = (r.status || 'new').trim();
     const tags = (r.tags || '').split(',').map(t => t.trim());
-    const template = (r.template || '').trim();
 
     // --- Flags for this row ---
     const wasSent = OUTREACH_STATUSES.has(s) || !!r.contacted_at || (s === 'dead' && !!r.contacted_at);
@@ -141,27 +140,39 @@ function deriveMetrics(rows) {
     }
 
     // --- Per-template metrics (split by channel) ---
-    if (template && wasSent) {
-      // Legacy combined (for metrics.yml keys)
-      if (!tpl[template]) tpl[template] = { sent: 0, accepted: 0, replied: 0, calls: 0 };
-      tpl[template].sent++;
-      if (wasAccepted) tpl[template].accepted++;
-      if (didReply) tpl[template].replied++;
-      if (callBooked || callDone) tpl[template].calls++;
+    // Dual-template model:
+    //   r.template        = connection template (never overwritten by an InMail)
+    //   r.inmail_template = InMail template (set when channel=inmail)
+    // This preserves attribution if the user switched templates between channels.
+    const connTemplate = (r.template || '').trim();
+    const inmailTemplate = (r.inmail_template || '').trim();
 
-      // Per-channel split
-      if (channel === 'inmail') {
-        if (!inmail_tpl[template]) inmail_tpl[template] = { sent: 0, replied: 0, calls: 0 };
-        inmail_tpl[template].sent++;
-        if (didReply) inmail_tpl[template].replied++;
-        if (callBooked || callDone) inmail_tpl[template].calls++;
-      } else {
-        if (!conn_tpl[template]) conn_tpl[template] = { sent: 0, accepted: 0, replied: 0, calls: 0 };
-        conn_tpl[template].sent++;
-        if (wasAccepted) conn_tpl[template].accepted++;
-        if (didReply) conn_tpl[template].replied++;
-        if (callBooked || callDone) conn_tpl[template].calls++;
+    // Connection-template attribution
+    if (connTemplate && wasSent) {
+      if (!conn_tpl[connTemplate]) conn_tpl[connTemplate] = { sent: 0, accepted: 0, replied: 0, calls: 0 };
+      conn_tpl[connTemplate].sent++;
+      if (wasAccepted) conn_tpl[connTemplate].accepted++;
+      if (channel !== 'inmail') {
+        if (didReply) conn_tpl[connTemplate].replied++;
+        if (callBooked || callDone) conn_tpl[connTemplate].calls++;
       }
+      if (!tpl[connTemplate]) tpl[connTemplate] = { sent: 0, accepted: 0, replied: 0, calls: 0 };
+      tpl[connTemplate].sent++;
+      if (wasAccepted) tpl[connTemplate].accepted++;
+      if (didReply && channel !== 'inmail') tpl[connTemplate].replied++;
+      if ((callBooked || callDone) && channel !== 'inmail') tpl[connTemplate].calls++;
+    }
+
+    // InMail-template attribution
+    if (inmailTemplate && channel === 'inmail' && wasSent) {
+      if (!inmail_tpl[inmailTemplate]) inmail_tpl[inmailTemplate] = { sent: 0, replied: 0, calls: 0 };
+      inmail_tpl[inmailTemplate].sent++;
+      if (didReply) inmail_tpl[inmailTemplate].replied++;
+      if (callBooked || callDone) inmail_tpl[inmailTemplate].calls++;
+      if (!tpl[inmailTemplate]) tpl[inmailTemplate] = { sent: 0, accepted: 0, replied: 0, calls: 0 };
+      if (!connTemplate) tpl[inmailTemplate].sent++;
+      if (didReply) tpl[inmailTemplate].replied++;
+      if (callBooked || callDone) tpl[inmailTemplate].calls++;
     }
   }
 

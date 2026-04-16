@@ -2,7 +2,8 @@
 // Generate today's outreach checklist.
 // Usage: node tools/outreach/daily-targets.js [count=30] [--source SOURCE] [--followups N] [--inmails N]
 //
-// Generates three sections:
+// Generates four sections:
+//   0. Withdraw stale invitations (pending too long — pre-checked to withdraw)
 //   1. Follow-ups (accepted but haven't replied, sorted by staleness)
 //   2. InMails (stale dm_sent with no accept after 3+ days, high priority)
 //   3. New DMs (status=new, sorted by priority)
@@ -55,18 +56,16 @@ newPool.sort((a, b) => {
 });
 const newPicks = newPool.slice(0, newCount);
 
-// --- Pool 2: Follow-ups (accepted, dm_sent, no reply) ---
+// --- Pool 2: Follow-ups (accepted, dm_sent, no reply, 3+ days since last touch) ---
 // Sort by "last touch" date (followed_up_at if set, else contacted_at), oldest first
+const FOLLOWUP_COOLDOWN_DAYS = 3; // minimum days since last message before following up again
 let followupPool = rows.filter(r => {
   if (r.status !== 'dm_sent') return false;
   if (!(r.tags || '').includes('accepted')) return false;
-  // 3-day cooldown: don't show if last touch was < 3 days ago
   const lastTouch = r.followed_up_at || r.contacted_at || '';
-  if (lastTouch) {
-    const daysSince = Math.floor((new Date(today) - new Date(lastTouch)) / 86400000);
-    if (daysSince < 3) return false;
-  }
-  return true;
+  if (!lastTouch) return false;
+  const age = Math.floor((new Date(today) - new Date(lastTouch)) / 86400000);
+  return age >= FOLLOWUP_COOLDOWN_DAYS;
 });
 followupPool.sort((a, b) => {
   const aDate = a.followed_up_at || a.contacted_at || '9999';
@@ -77,49 +76,40 @@ const followupPicks = followupPool.slice(0, followupCount);
 
 // --- Pool 3: InMail candidates (dm_sent, NOT accepted, 3+ days old, high priority) ---
 // These people ignored the connection request — try InMail as a second channel
-const inmailPool = rows.filter(r => {
+const inmailBase = rows.filter(r => {
   if (r.status !== 'dm_sent') return false;
   if ((r.tags || '').includes('accepted')) return false; // already accepted, use follow-up instead
   if ((r.channel || '') === 'inmail') return false; // already InMailed
   if (!r.contacted_at) return false;
-  const daysSince = Math.floor((new Date(today) - new Date(r.contacted_at)) / 86400000);
-  return daysSince >= 3;
-}).sort((a, b) => {
-  // High priority first, then oldest contacted_at
-  const pa = parseInt(a.priority || '0') || 0;
-  const pb = parseInt(b.priority || '0') || 0;
-  if (pb !== pa) return pb - pa;
-  return (a.contacted_at || '').localeCompare(b.contacted_at || '');
+  const daysSinceContact = Math.floor((new Date(today) - new Date(r.contacted_at)) / 86400000);
+  return daysSinceContact >= 3;
 });
+const inmailBaseCount = inmailBase.length;
+
 // Smart gating: prefer high-priority, good-role leads for premium InMail channel
 const INMAIL_MIN_PRIORITY = 70;
 const INMAIL_PREFERRED_ROLES = /\b(ceo|founder|co-founder|cto|coo|cfo|chief|vp|vice president|director|head of|managing director|owner)\b/i;
 
-// Read excluded types from templates.json
-let inmailExcludedTypes = new Set();
-if (fs.existsSync(TEMPLATES_PATH)) {
-  const tplConfig = JSON.parse(fs.readFileSync(TEMPLATES_PATH, 'utf8'));
-  if (tplConfig.excluded_company_types) {
-    inmailExcludedTypes = new Set(tplConfig.excluded_company_types);
-  }
-}
+// Read excluded types from templates.json (reuse same config)
+const inmailExcludedTypes = EXCLUDED_COMPANY_TYPES;
 
 // Apply smart gating
-let inmailFiltered = inmailPool.filter(r => {
+let inmailFiltered = inmailBase.filter(r => {
   const p = parseInt(r.priority || '0') || 0;
   if (p < INMAIL_MIN_PRIORITY) return false;
   if (inmailExcludedTypes.has((r.company_type || '').toLowerCase())) return false;
   return true;
 });
 
-// Sort: preferred roles first, then by priority
+// Sort: preferred roles first, then by priority, then oldest
 inmailFiltered.sort((a, b) => {
   const aRole = INMAIL_PREFERRED_ROLES.test(a.title || '') ? 1 : 0;
   const bRole = INMAIL_PREFERRED_ROLES.test(b.title || '') ? 1 : 0;
   if (bRole !== aRole) return bRole - aRole;
   const pa = parseInt(a.priority || '0') || 0;
   const pb = parseInt(b.priority || '0') || 0;
-  return pb - pa;
+  if (pb !== pa) return pb - pa;
+  return (a.contacted_at || '').localeCompare(b.contacted_at || '');
 });
 
 const inmailPicks = inmailFiltered.slice(0, inmailCount);
@@ -146,7 +136,11 @@ if (fs.existsSync(TEMPLATES_PATH)) {
   templates = JSON.parse(fs.readFileSync(TEMPLATES_PATH, 'utf8'));
 }
 const { metrics: derived, conn_tpl, inmail_tpl, followups: fuStats } = deriveMetrics(rows);
+
+// Config keys stored alongside template objects — exclude from ranking
+const CONFIG_KEYS = new Set(['country_template_map', 'excluded_company_types']);
 const ranked = Object.keys(templates)
+  .filter(id => !CONFIG_KEYS.has(id) && id !== 'FU')
   .map(id => {
     const sent = derived[`tpl_${id}_sent`] || 0;
     const accepted = derived[`tpl_${id}_accepted`] || 0;
@@ -170,12 +164,11 @@ if (fs.existsSync(TEMPLATES_PATH)) {
   }
 }
 
-// Get available template IDs (exclude config keys)
-const CONFIG_KEYS = new Set(['country_template_map', 'excluded_company_types']);
+// Get available template IDs (exclude config keys + follow-up meta template)
 function getTemplateIds() {
   if (!fs.existsSync(TEMPLATES_PATH)) return [];
   const tpl = JSON.parse(fs.readFileSync(TEMPLATES_PATH, 'utf8'));
-  return Object.keys(tpl).filter(k => !CONFIG_KEYS.has(k));
+  return Object.keys(tpl).filter(k => !CONFIG_KEYS.has(k) && k !== 'FU');
 }
 
 function assignTemplate(r, idx, pool) {
@@ -206,7 +199,40 @@ lines.push('');
 const totalActions = newPicks.length + followupPicks.length + inmailPicks.length;
 lines.push(`**Target: ${newPicks.length} new DMs + ${followupPicks.length} follow-ups + ${inmailPicks.length} InMails = ${totalActions} actions.** Tick the box as you send. Run \`node tools/outreach/flush-targets.js\` when done.`);
 lines.push('');
-lines.push(`Pools: ${newPool.length} new · ${followupPool.length} follow-up · ${inmailPool.length} InMail candidates (${inmailFiltered.length} qualified)`);
+lines.push(`Pools: ${newPool.length} new · ${followupPool.length} follow-up · ${inmailBase.length}/${inmailBaseCount} InMail qualified`);
+
+// --- Stale invitation detection (same rules as stale-invitations.js) ---
+const TIER1_DAYS = 7, TIER2_DAYS = 7, TIER3_DAYS = 14;
+const RECENT_TOUCH_DAYS = 3;  // any touch within this window overrides staleness (see stale-invitations.js)
+const pendingAll = rows.filter(r =>
+  r.status === 'dm_sent' &&
+  !(r.tags || '').includes('accepted') &&
+  r.contacted_at &&
+  (r.channel || 'connection') === 'connection'
+);
+const wasInmailed = (r) => {
+  const notes = (r.notes || '').toLowerCase();
+  return notes.includes('inmail') || (r.channel === 'inmail');
+};
+const daysSinceLastTouch = (r) => {
+  const c = [r.contacted_at, r.followed_up_at, r.replied_at].filter(Boolean).map(daysSince);
+  return c.length ? Math.min(...c) : Infinity;
+};
+const staleTier1 = [], staleTier2 = [], staleTier3 = [];
+for (const r of pendingAll) {
+  // Recent-touch buffer: skip leads with any message sent within RECENT_TOUCH_DAYS
+  if (daysSinceLastTouch(r) < RECENT_TOUCH_DAYS) continue;
+  const age = daysSince(r.contacted_at);
+  if (wasInmailed(r) && age >= TIER1_DAYS) {
+    staleTier1.push({ ...r, age, tier: 1 });
+  } else if (EXCLUDED_COMPANY_TYPES.has((r.company_type || '').toLowerCase()) && age >= TIER2_DAYS) {
+    staleTier2.push({ ...r, age, tier: 2 });
+  } else if (age >= TIER3_DAYS) {
+    staleTier3.push({ ...r, age, tier: 3 });
+  }
+}
+const allStale = [...staleTier1, ...staleTier2, ...staleTier3].sort((a, b) => b.age - a.age);
+const totalStale = allStale.length;
 lines.push('');
 // Limits
 const connPct = Math.round(thisWeekConnections / 100 * 100);
@@ -273,9 +299,43 @@ if (ranked.length > 0) {
 }
 lines.push('**★ = best performer.** Country-mapped leads → assigned template, rest round-robin. Edit template code on any line to override.');
 lines.push('');
-lines.push('> **Legend:** `[x]` = sent · edit `` `B` ``→`` `C` `` to change template · `[x] reject` = dead');
-lines.push('> **Emp/Rev:** edit inline, syncs back to CSV on flush');
+lines.push('> **Legend:** `[x]` = sent · edit `` `B` ``→`` `C` `` to change template · `[x] reject` = dead · `[x] reject: reason` = dead + tagged');
+lines.push('> **Emp/Rev/Type:** edit inline, syncs back to CSV on flush');
 lines.push('');
+
+// --- Section 0: Stale invitations to withdraw ---
+if (totalStale > 0) {
+  lines.push('---');
+  lines.push('');
+  lines.push(`## 🗑️ Withdraw stale invitations (${totalStale})`);
+  lines.push('');
+  lines.push('> These invitations have been pending too long. Withdraw them on LinkedIn → My Network → Manage → Sent.');
+  lines.push('> **Default:** the main box is pre-checked → withdraw.');
+  lines.push('> **Keep:** uncheck the main box → no change, lead stays pending.');
+  lines.push('> **Last-shot InMail:** tick `📧 inmail instead` → marks InMail sent today, protects from withdrawal for 3 days. Edit the template letter (`` `B` ``) to override.');
+  lines.push('> **Correct the data:** edit `type:` / `emp:` / `rev:` inline — priority will be recalculated on flush.');
+  lines.push('');
+
+  for (const r of allStale) {
+    const name = `${r.first_name} ${r.last_name}`.trim() || '(no name)';
+    const url = r.linkedin_url && !r.linkedin_url.startsWith('manual:') && !r.linkedin_url.startsWith('company:')
+      ? r.linkedin_url : '';
+    const nameLink = url ? `[${name}](${url})` : `**${name}**`;
+    const company = r.company || '';
+    const country = r.country || '';
+    const emp = r.employees ? `emp:${r.employees}` : 'emp:';
+    const rev = r.revenue ? `rev:${r.revenue}` : 'rev:';
+    const ctype = r.company_type ? `type:${r.company_type}` : 'type:';
+    const tags = (r.tags || '').split(',').filter(t => t && t !== 'salesnav-stage1' && t !== 'tier1' && t !== 'accepted').slice(0, 3).join(' ');
+    const tagSuffix = tags ? ` _[${tags}]_` : '';
+    const tpl = assignTemplate(r, 0, allStale);
+    lines.push(`- [x] 🗑️ ${nameLink} · ${r.title || ''} · ${company} · ${country} · ${emp} · ${rev} · ${ctype} · sent: ${r.contacted_at} (${r.age}d, tier ${r.tier}) · p${r.priority || '?'}${tagSuffix}`);
+    lines.push(`  - [ ] 📧 \`${tpl}\` inmail instead (last shot)`);
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+  }
+}
 
 // --- Section 1: Follow-ups (accepted, no reply) ---
 if (followupPicks.length > 0) {
@@ -286,6 +346,13 @@ if (followupPicks.length > 0) {
   lines.push('> These people accepted your connection. A short follow-up message to book a call.');
   lines.push('> `last_touch` = followed_up_at or contacted_at. Oldest first.');
   lines.push('');
+  // Follow-up template (copyable, not tracked)
+  const fuTpl = templates['FU'];
+  if (fuTpl && fuTpl.text) {
+    lines.push('**Follow-up template** (replace `[Name]` and `[Role]`):');
+    lines.push(`> ${fuTpl.text}`);
+    lines.push('');
+  }
 
   for (const r of followupPicks) {
     const name = `${r.first_name} ${r.last_name}`.trim() || '(no name)';
@@ -301,8 +368,9 @@ if (followupPicks.length > 0) {
 
     const emp = r.employees ? `emp:${r.employees}` : 'emp:';
     const rev = r.revenue ? `rev:${r.revenue}` : 'rev:';
+    const ctype = r.company_type ? `type:${r.company_type}` : 'type:';
 
-    lines.push(`- [ ] 🔄 ${nameLink} · ${r.title || ''} · ${company} · ${country} · ${emp} · ${rev} · last touch: ${lastTouch} (${days}d ago)${tagSuffix}`);
+    lines.push(`- [ ] 🔄 ${nameLink} · ${r.title || ''} · ${company} · ${country} · ${emp} · ${rev} · ${ctype} · last touch: ${lastTouch} (${days}d ago)${tagSuffix}`);
     lines.push(`  - [ ] reject`);
     lines.push('');
     lines.push('---');
@@ -317,7 +385,8 @@ if (inmailPicks.length > 0) {
   lines.push(`## 📧 InMails (${inmailPicks.length}) — connection ignored 3+ days, try InMail`);
   lines.push('');
   lines.push('> These people haven\'t accepted your connection request. InMail bypasses the connection.');
-  lines.push(`> This month: ${thisMonthInMails}/99 InMails used. Sorted by priority, then age.`);
+  lines.push(`> This month: ${thisMonthInMails}/99 InMails used. Sorted by preferred roles → priority → age.`);
+  lines.push(`> Filtered from ${inmailBaseCount} candidates → ${inmailFiltered.length} qualified (min p${INMAIL_MIN_PRIORITY}, preferred roles, excluded types)`);
   lines.push('');
 
   for (const r of inmailPicks) {
@@ -334,9 +403,11 @@ if (inmailPicks.length > 0) {
 
     const emp = r.employees ? `emp:${r.employees}` : 'emp:';
     const rev = r.revenue ? `rev:${r.revenue}` : 'rev:';
+    const ctype = r.company_type ? `type:${r.company_type}` : 'type:';
 
-    lines.push(`- [ ] 📧 \`${tpl}\` ${nameLink} · ${r.title || ''} · ${company} · ${country} · ${emp} · ${rev} · conn sent: ${r.contacted_at} (${days}d ago) · p${r.priority || '?'}${tagSuffix}`);
+    lines.push(`- [ ] 📧 \`${tpl}\` ${nameLink} · ${r.title || ''} · ${company} · ${country} · ${emp} · ${rev} · ${ctype} · conn sent: ${r.contacted_at} (${days}d ago) · p${r.priority || '?'}${tagSuffix}`);
     lines.push(`  - [ ] reject`);
+    lines.push(`  - [ ] 🗑️ withdraw connection`);
     lines.push('');
     lines.push('---');
     lines.push('');
@@ -374,11 +445,13 @@ for (const r of newPicks) {
   const company = r.company || '';
   const country = r.country || '';
   const emp = r.employees ? `emp:${r.employees}` : 'emp:';
+  const rev = r.revenue ? `rev:${r.revenue}` : 'rev:';
+  const ctype = r.company_type ? `type:${r.company_type}` : 'type:';
   const tags = (r.tags || '').split(',').filter(t => t && t !== 'salesnav-stage1' && t !== 'tier1').slice(0, 3).join(' ');
   const tagSuffix = tags ? ` _[${tags}]_` : '';
   const tpl = assignTemplate(r, globalIdx, newPicks);
 
-  lines.push(`- [ ] \`${tpl}\` ${nameLink} · ${title} · ${company} · ${country} · ${emp} · rev: · p${r.priority || '?'}${tagSuffix}`);
+  lines.push(`- [ ] \`${tpl}\` ${nameLink} · ${title} · ${company} · ${country} · ${emp} · ${rev} · ${ctype} · p${r.priority || '?'}${tagSuffix}`);
   lines.push(`  - [ ] reject`);
   lines.push('');
   lines.push('---');
@@ -396,6 +469,7 @@ lines.push('');
 fs.writeFileSync(OUT, lines.join('\n'));
 console.log(`✓ Wrote ${OUT}`);
 console.log(`  ${newPicks.length} new DMs + ${followupPicks.length} follow-ups + ${inmailPicks.length} InMails = ${totalActions} actions`);
+if (totalStale > 0) console.log(`  🗑️ ${totalStale} stale invitations to withdraw (${staleTier1.length} T1 + ${staleTier2.length} T2 + ${staleTier3.length} T3)`);
 console.log(`  New: top score ${newPicks[0]?.priority || '?'} · bottom ${newPicks[newPicks.length - 1]?.priority || '?'}`);
 if (followupPicks.length) {
   const oldest = followupPicks[0];
