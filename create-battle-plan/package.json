@@ -1,6 +1,6 @@
 {
   "name": "create-battle-plan",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "Scaffold a Battle Plan project — a markdown-based context system for LLM-powered project management",
   "bin": {
     "create-battle-plan": "./bin/cli.js"
