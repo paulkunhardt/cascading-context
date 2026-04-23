@@ -136,6 +136,22 @@ while IFS= read -r doc; do
   done < <(grep -oE '\(→ [^)]+\)' "$doc" 2>/dev/null || true)
 done < <(find "$DOCS_DIR" -name "*.md" -not -path "*/examples/*" 2>/dev/null)
 
+# --- Check 6: today.md freshness (task subsystem) ---
+echo ""
+echo "--- Check 6: today.md Freshness ---"
+
+TASKS_YML="$REPO_ROOT/tasks.yml"
+TODAY_MD="$DOCS_DIR/today.md"
+if [ -f "$TASKS_YML" ] && [ -f "$TODAY_MD" ]; then
+  if [ "$TASKS_YML" -nt "$TODAY_MD" ]; then
+    echo "WARNING: tasks.yml is newer than docs/today.md — run \`node tools/tasks/render-today.js\`"
+    WARNINGS=$((WARNINGS + 1))
+  fi
+elif [ -f "$TASKS_YML" ] && [ ! -f "$TODAY_MD" ]; then
+  echo "WARNING: tasks.yml exists but docs/today.md does not — run \`node tools/tasks/render-today.js\`"
+  WARNINGS=$((WARNINGS + 1))
+fi
+
 # --- Summary ---
 echo ""
 echo "========================="

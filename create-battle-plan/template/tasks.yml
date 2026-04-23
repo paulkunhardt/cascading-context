@@ -1,0 +1,5 @@
+# tasks.yml — structured task log. Source of truth for docs/today.md.
+# Never hand-edit while today.md has unflushed checkbox changes — flush first.
+last_updated: 1970-01-01
+next_id: 1
+tasks:

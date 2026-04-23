@@ -63,10 +63,14 @@ Then show a **compact metrics table** (all zeros, no targets yet) and transition
 
 *Skip this on first run (Step 0 handles it). On all subsequent runs, start here.*
 
-Read all of these in parallel:
-- `metrics.yml` — current numbers
-- `docs/battle-plan.md` — TL;DR + latest day log (find today or the most recent day entry)
+Run these in parallel:
+- `node tools/tasks/render-today.js --quiet` — regenerate `docs/today.md` from `tasks.yml`
+- Read `metrics.yml` — current numbers
+- Read `docs/today.md` — user's daily surface (open tasks, calls, pulse)
+- Read `docs/battle-plan.md` TL;DR + latest day log *only if needed for deep context*
 - Run `git log --oneline -15` — what changed since last session
+
+The battle plan is your orientation layer — read it on demand, not by default. `docs/today.md` is what the user sees, so lead with that.
 
 ## Step 2: Present the Briefing
 
@@ -99,6 +103,7 @@ End with 2-3 short questions:
 ## Step 4: Prep the Day
 
 After the user answers:
+- If they drop new tasks verbally, run `node tools/tasks/add.js "..." [--due ...] [--tag ...] [--priority 1|2|3]` for each, then re-run `render-today.js`.
 - If they report any updates → run the full cascade (Steps 0-4 from CLAUDE.md)
 - Update the battle plan day log with today's plan
 
