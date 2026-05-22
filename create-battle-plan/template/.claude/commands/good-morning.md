@@ -72,6 +72,18 @@ Run these in parallel:
 
 The battle plan is your orientation layer — read it on demand, not by default. `docs/today.md` is what the user sees, so lead with that.
 
+## Step 1.6: Events context-debt warning (silent unless overdue)
+
+`events.yml` carries past events that haven't been gated yet (transcript / spawned-tasks / insight not captured). Wrap-up's Step 4.5d handles these — but if the user skipped it or no wrap-up ran, they accumulate as context-debt.
+
+Run `node tools/events/due-for-gate.js --json` and check whether any returned event has `end || start < (now - 2 days)`. If so, surface in the briefing:
+
+> ⚠️ **Context-debt: N past event(s) ungated >2d** — EVT-{id} {title} ({start date}). Run `/wrap-up` Step 4.5d to capture transcript + insights.
+
+Don't walk the gate during good-morning — wrap-up is the right time for that. Just flag it so the user knows.
+
+If no events are returned, or none are >2d old, this step is silent.
+
 ## Step 2: Present the Briefing
 
 Print a compact morning report with these sections:
@@ -97,6 +109,7 @@ Pull all defined metrics from `metrics.yml`. If targets are defined in the battl
 
 End with 2-3 short questions:
 - "Anything happen since we last talked? Replies, updates, new info?"
+- "Any new events to schedule? Calls, demos, meetings I should add to `events.yml`?" — if they name anything, call `node tools/events/add.js --title "..." --start "ISO" [--lead-id <id-if-any>] --source manual-chat`.
 - If there are stale items (no progress for 2+ days), ask about them specifically
 - If a key deliverable is outstanding, ask about it
 

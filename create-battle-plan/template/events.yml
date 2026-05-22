@@ -1,0 +1,5 @@
+# events.yml — single source of truth for future time-based events (calls, demos, meetings).
+# Past/completed events live in events-archive.yml. Tasks (deadline-only, no time-span) live in tasks.yml.
+last_updated: 2026-05-11
+next_id: 1
+events:

@@ -1,0 +1,5 @@
+# events-archive.yml — past/completed events. Mirrors events.yml schema.
+# Wrap-up gate moves events here after transcript + insights captured.
+last_updated: 2026-05-11
+next_id: 1
+events:

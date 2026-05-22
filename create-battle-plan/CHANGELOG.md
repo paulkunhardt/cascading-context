@@ -5,6 +5,70 @@ All notable changes to `create-battle-plan` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-05-11
+
+### Added
+- **`events.yml` + `events-archive.yml` — single source of truth for time-based events.**
+  Calls, demos, meetings, advisor sessions, dentist appointments — anything with a start
+  datetime AND a counterparty/attendee. Tasks (deadline-only, no time-span) stay in
+  `tasks.yml`. Past/completed events live in `events-archive.yml` after the wrap-up gate
+  captures transcript / spawned tasks / insights. IDs share a global sequence across both
+  files; an event's ID never changes when archived.
+- **`tools/events/` directory** (six files):
+  - `lib/events.js` — YAML reader/writer with `load`, `save`, `upsert` (idempotent on
+    `(lead_id, start)` tuple), `upcoming`, `todayEvents`, `dueForGate`, `leadHadCall`,
+    `eventsByLead`, `defaultEnd`. Self-contained, no external YAML deps.
+  - `add.js` — CLI: `node tools/events/add.js --title "..." --start "ISO" [--type ...]
+    [--lead-id ...] [--attendee "X"]`. Idempotent — same lead_id+start updates instead
+    of inserting. Used by Claude when the user mentions an event in chat.
+  - `upcoming.js` — `node tools/events/upcoming.js [--json] [--today] [--days N]`.
+    Single read path for "what's coming up?" Used by `render-today.js` and skills.
+  - `due-for-gate.js` — returns events whose end-time has passed without `gate_completed_at`.
+    Used by `/wrap-up` Step 4.5d (mandatory gate) and `/good-morning` Step 1.6 (warns when
+    context-debt > 2 days old).
+  - `archive.js` — moves gated terminal events to `events-archive.yml`. Auto-marks stale
+    `>14d` scheduled events as `no_show`. Idempotent.
+  - `migrate-from-csv.js` — one-shot migration for installs that previously stored scheduled
+    calls in `outreach/leads.csv:call_at`. Splits into events.yml (future) + events-archive.yml
+    (past). Idempotent. No-ops when no `leads.csv` is present (Profile A — base only).
+- **`render-today.js` reads events.yml.** `buildCallsSection()` surfaces `events.todayEvents()`
+  in the "Calls & meetings" block. `buildPulseSection()` adds an "Upcoming events" line from
+  `events.upcoming()` (future-dated only — today's calls are surfaced separately).
+- **`/wrap-up` Step 4.5d — Events gate.** Walks the user through every past event whose
+  `gate_completed_at` is unset, one at a time, with a five-question menu (transcript path,
+  hypothesis impacts, tasks spawned, insight worth saving, [skip]). Each answer cascades
+  immediately to the right place (transcripts → `docs/archive/transcripts/`, hypotheses →
+  `[UPDATE]` block in hypotheses.md, tasks → `add.js` calls, insights → chronological doc).
+  After all non-skipped answers applied, stamps `gate_completed_at` and runs `archive.js`.
+  Skip leaves the gate open; the event resurfaces tomorrow.
+- **`/good-morning` Step 1.6 — Events context-debt warning.** Silent unless `due-for-gate.js`
+  returns events older than 2 days. Then surfaces a `⚠️ Context-debt` line pointing at
+  `/wrap-up` Step 4.5d. Does NOT walk the gate during morning — wrong time of day.
+- **`/good-morning` Step 3 prompt:** "Any new events to schedule? Calls, demos, meetings I
+  should add to `events.yml`?" — when the user names anything, Claude calls
+  `tools/events/add.js` with the right flags instead of just acknowledging verbally.
+
+### Changed
+- **CLAUDE.md structural rewrite (310 → 205 lines, ~34% shorter).** Five-section structure
+  in priority order: (1) How this project works, (2) The Cascade — stated once, (3)
+  Behavioral rules — action-shaped "when X happens, do Y" rules, (4) Schemas & format,
+  (5) Pointers. Each rule now lives in one place — no more drift from "never hand-edit
+  metrics" stated 3x in slightly different wording. Outreach-specific rules are clearly
+  marked "Profile B only". The backup is preserved as `CLAUDE.md.backup-2026-05-11`.
+- **Render-today's calls section signature.** `buildCallsSection(leads)` → `buildCallsSection()`.
+  No longer takes the leads array — pulls events directly from `events.yml`. The events
+  lib loads lazily so the base template (no outreach add-on) still works even if a user
+  removes the events directory.
+
+### Migration
+- Fully additive for the base package — `events.yml` and `events-archive.yml` are created
+  empty. Existing installs: run `tools/events/upcoming.js` to confirm the events lib loads.
+- Outreach add-on users (Profile B): also bump `create-battle-plan-outreach` to 1.4.0 and
+  run `node tools/events/migrate-from-csv.js --commit` once to split your historical
+  `leads.csv:call_at` column into `events.yml` (future) + `events-archive.yml` (past).
+  Idempotent. Re-running it is safe.
+- No schema break in `metrics.yml`, `tasks.yml`, or any existing doc.
+
 ## [1.3.0] - 2026-05-07
 
 ### Added

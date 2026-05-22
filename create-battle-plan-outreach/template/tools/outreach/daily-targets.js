@@ -373,14 +373,22 @@ if (followupPicks.length > 0) {
   lines.push('> These people accepted your connection. A short follow-up message to book a call.');
   lines.push('> `last_touch` = followed_up_at or contacted_at. Oldest first.');
   lines.push('> **`[x] 💤 snooze`** = not ready yet (e.g. they just accepted). Resets last-touch to today, no message sent, lead reappears in 3+ days.');
+  lines.push('> **FU template tracking:** the backtick value after 🔄 is the follow-up template you sent. Change `FU` → `FU-B`, `FU-C`, or `FU-FREE` to match what you actually wrote. Default suggestions: `FU` for A/B/C-connected leads, `FU-B` for NONE-connected (the standard `FU` references "previously stated" — breaks for bare-connect).');
   lines.push('');
-  // Follow-up template (copyable, not tracked)
-  const fuTpl = templates['FU'];
-  if (fuTpl && fuTpl.text) {
-    lines.push('**Follow-up template** (replace `[Name]` and `[Role]`):');
-    lines.push(`> ${fuTpl.text}`);
-    lines.push('');
+  // Follow-up templates (copyable). Show all tracked FU variants so the operator can swap.
+  for (const k of ['FU', 'FU-B', 'FU-C']) {
+    const t = templates[k];
+    if (t && t.text) {
+      const hint = k === 'FU' ? 'lead got a connection note (A/B/C)'
+        : k === 'FU-B' ? 'lead got NONE, pitch problem fresh'
+        : 'lead got NONE, direct call-ask';
+      lines.push(`**\`${k}\`** _(${hint})_:`);
+      lines.push(`> ${t.text}`);
+      lines.push('');
+    }
   }
+  lines.push('Use `FU-FREE` if you wrote a bespoke message.');
+  lines.push('');
 
   for (const r of followupPicks) {
     const name = `${r.first_name} ${r.last_name}`.trim() || '(no name)';
@@ -393,12 +401,16 @@ if (followupPicks.length > 0) {
     const country = r.country || '';
     const tags = (r.tags || '').split(',').filter(t => t && t !== 'salesnav-stage1' && t !== 'tier1' && t !== 'accepted').slice(0, 3).join(' ');
     const tagSuffix = tags ? ` _[${tags}]_` : '';
+    const origTpl = r.template ? `tpl:${r.template}` : 'tpl:';
 
     const emp = r.employees ? `emp:${r.employees}` : 'emp:';
     const rev = r.revenue ? `rev:${r.revenue}` : 'rev:';
     const ctype = r.company_type ? `type:${r.company_type}` : 'type:';
 
-    lines.push(`- [ ] 🔄 ${nameLink} · ${r.title || ''} · ${company} · ${country} · ${emp} · ${rev} · ${ctype} · last touch: ${lastTouch} (${days}d ago)${tagSuffix}`);
+    // FU template suggestion: FU-B for NONE (no "previously stated" anchor), FU otherwise.
+    const fuDefault = (r.template === 'NONE') ? 'FU-B' : 'FU';
+
+    lines.push(`- [ ] 🔄 \`${fuDefault}\` ${nameLink} · ${r.title || ''} · ${company} · ${country} · ${origTpl} · ${emp} · ${rev} · ${ctype} · last touch: ${lastTouch} (${days}d ago)${tagSuffix}`);
     lines.push(`  - [ ] 💤 snooze (not ready yet)`);
     lines.push(`  - [ ] reject`);
     lines.push('');

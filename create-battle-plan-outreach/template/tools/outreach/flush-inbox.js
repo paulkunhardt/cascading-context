@@ -28,7 +28,6 @@ function urlToLead(url) {
     priority: '50', // medium default
     contacted_at: '',
     replied_at: '',
-    call_at: '',
     notes: `Pasted via inbox ${new Date().toISOString().slice(0, 10)}. Slug: ${slug}`,
   };
 }

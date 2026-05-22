@@ -160,8 +160,8 @@ function parseChecked(md) {
         }
         continue;
       }
-      // Match follow-up format: - [x] 🔄 [Name](url) · ...
-      const followupMatch = line.match(/^- \[([xX ])\]\s+🔄\s+/);
+      // Match follow-up format: - [x] 🔄 `FU` [Name](url) · ...   (backtick template optional for backwards-compat)
+      const followupMatch = line.match(/^- \[([xX ])\]\s+🔄\s+(?:`([^`]+)`\s+)?/);
       // Match InMail format: - [x] 📧 `B` [Name](url) · ...
       const inmailMatch = !followupMatch && line.match(/^- \[([xX ])\]\s+📧\s+`([^`]+)`\s+/);
       // Match new DM format: - [x] `B` [Name](url) · ...
@@ -170,7 +170,9 @@ function parseChecked(md) {
       const parentChecked = m[1].toLowerCase() === 'x';
       const isFollowup = !!followupMatch;
       const isInmail = !!inmailMatch;
-      const template = (isFollowup) ? '' : (m[2] || '').trim();
+      // For follow-ups: m[2] = FU template (FU / FU-B / FU-C / FU-FREE), or undefined if user removed backticks.
+      // For InMails / new DMs: m[2] = connection template (A / B / C / NONE).
+      const template = (m[2] || '').trim();
 
       // Extract name and URL
       let name = '', url = '';
@@ -398,9 +400,13 @@ function main() {
       continue;
     }
     if (item.isFollowup) {
-      // Follow-up: update followed_up_at, don't change status
+      // Follow-up: update followed_up_at, don't change status. Capture the FU template (FU / FU-B /
+      // FU-C / FU-FREE) so reply/call outcomes can be attributed back to follow-up style independent
+      // of the connection-note template.
       lead.followed_up_at = today;
-      lead.notes = `Follow-up sent ${today} | ${lead.notes || ''}`.replace(/\| $/, '');
+      if (item.template) lead.followup_template = item.template;
+      const fuTag = item.template ? ` (${item.template})` : '';
+      lead.notes = `Follow-up sent ${today}${fuTag} | ${lead.notes || ''}`.replace(/\| $/, '');
       applyMetadataEdits(lead, item);
       followedUp.push(lead);
     } else if (item.isInmail) {

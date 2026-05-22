@@ -5,6 +5,69 @@ All notable changes to `create-battle-plan-outreach` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-05-11
+
+### Changed (breaking-but-backwards-compatible)
+- **`leads.csv:call_at` column removed.** Time-based events now live in `events.yml` /
+  `events-archive.yml` (single source of truth, see `create-battle-plan` 1.4.0). The CSV
+  reader picks up live headers from row 1, so existing CSVs with a `call_at` column still
+  load — the column is dropped on the next save once HEADERS propagates. Run
+  `node tools/events/migrate-from-csv.js --commit` once to split historical `call_at`
+  values into the events files (idempotent).
+- **`leads.csv:followup_template` column added** (between `inmail_template` and `notes`).
+  Tracks which follow-up template the operator actually wrote (`FU` / `FU-B` / `FU-C` /
+  `FU-FREE` / blank=legacy) — independent of the connection-note template, which is
+  immutable per lead.
+- **`VALID_STATUS`** in `lib/leads.js` now accepts `withdrawn` (invitation pulled — can
+  be re-contacted by resetting to `new`).
+
+### Added
+- **FU template tracking.** Follow-ups in the daily blitz now render a backtick template
+  marker per line: `- [ ] 🔄 \`FU\` [Name](url) · ...`. Default suggestion is `FU` for
+  A/B/C-connected leads and `FU-B` for NONE-connected (the standard `FU` references
+  "previously stated" — breaks for bare-connect). The operator swaps the marker to match
+  what they actually wrote before flushing.
+- **Three new FU template entries** in `templates.json`: `FU-B` (problem-fresh, for NONE),
+  `FU-C` (direct call-ask, for NONE), `FU-FREE` (marker for bespoke hand-written messages).
+  All `track: true` so reply/call attribution flows through `stats.js`.
+- **`stats.js` — new "FU template breakdown" table** after the rollup follow-up line.
+  Shows sent / reply / call per FU template style. Pre-tracking follow-ups display as
+  `(legacy)`. Lets you measure "is `FU-B` better for NONE-connected leads than `FU`?"
+- **`flush-targets.js` regex update** captures the optional backtick FU template from
+  the line. Backwards-compatible: legacy lines with no backtick still parse (template
+  becomes empty, attributed as `(legacy)`). The write path now sets
+  `lead.followup_template` and stamps the template id into the notes prefix:
+  `"Follow-up sent YYYY-MM-DD (FU-B) | ..."`.
+- **Daily-targets follow-up section** prints all three FU variants for copy-paste with
+  hint about when each fits.
+
+### Refactored
+- **`sync-metrics.js`** — `callDone` / `callBooked` flags now use
+  `events.leadHadCall(linkedin_url)` (unions events.yml + events-archive.yml) and
+  `events.eventsByLead()` (for future scheduled). The dead-lead-that-had-a-call edge case
+  is preserved because the historical event row carries `status=done` regardless of the
+  lead's current status. Defensive: if the events directory is absent, falls back to
+  no-op stubs and metrics still derive (status-only) — useful while migrating.
+- **`update-dashboard.js`** — same `events.leadHadCall` swap in `rowFlags()`.
+- **`flush-updates.js`** — when Haiku emits a `call_at` field (still the easiest English
+  parse), the value is now routed through `events.upsert()` instead of written to the
+  lead row. The resulting event has `type=unspecified` (operator fills in via wrap-up
+  gate or `events/add.js --id N`) and `status=scheduled` if future, `done` if past.
+- **`flush-inbox.js`** and **`flush-updates.js` new-lead default** — dropped `call_at: ''`
+  from the row template. Cosmetic — since HEADERS no longer contains `call_at`, the field
+  would have been dropped on write anyway.
+
+### Migration
+- Run `node tools/events/migrate-from-csv.js --commit` once (idempotent). It scans every
+  row with non-empty `call_at`, emits events into events.yml (future) or events-archive.yml
+  (past), then clears the `call_at` values. The column itself drops on the next leads.csv
+  save once you've updated `tools/outreach/lib/leads.js`.
+- New `followup_template` column is added automatically on next save. Existing rows
+  without it bucket as `(legacy)` in `stats.js`. No backfill needed.
+- All metric derivations (outreach_sent, responses, discovery_calls, calls_booked,
+  invitations_accepted, verbal_commitments) preserve their values after migration — the
+  events-driven derivation reproduces the old `call_at`-driven counts exactly.
+
 ## [1.2.2] - 2026-04-21
 
 ### Fixed
@@ -99,7 +162,7 @@ anchored to the old DM date. You have two options:
 - CSV-powered outreach pipeline with daily blitz, metrics sync, and
   mermaid dashboards as a Battle Plan add-on.
 
-[1.3.0]: https://github.com/paulkunhardt/battle-plan/releases/tag/outreach-v1.3.0
+[1.4.0]: https://github.com/paulkunhardt/battle-plan/releases/tag/outreach-v1.4.0
 [1.3.0]: https://github.com/paulkunhardt/battle-plan/releases/tag/outreach-v1.3.0
 [1.2.2]: https://github.com/paulkunhardt/battle-plan/releases/tag/outreach-v1.2.2
 [1.2.1]: https://github.com/paulkunhardt/battle-plan/releases/tag/outreach-v1.2.1

@@ -13,6 +13,10 @@ const fs = require('fs');
 const path = require('path');
 const { load } = require('./lib/leads');
 const { deriveMetrics } = require('./sync-metrics');
+// events.yml is the source of truth for time-based events (replaces leads.csv:call_at).
+let events;
+try { events = require('../events/lib/events'); }
+catch (e) { events = { leadHadCall: () => false, eventsByLead: () => [] }; }
 
 const ROOT = path.resolve(__dirname, '../..');
 const OUTPUT = path.join(ROOT, 'docs/analysis/icp-conversion.md');
@@ -90,8 +94,12 @@ function rowFlags(r) {
   const wasSent = OUTREACH_STATUSES.has(s) || !!r.contacted_at;
   const didReply = RESPONSE_STATUSES.has(s) || !!r.replied_at;
   const wasAccepted = tags.includes('accepted');
-  const callDone = s === 'call_done' || (r.call_at && r.call_at <= today) || (s === 'dead' && r.call_at && r.call_at <= today);
-  const callBooked = ['call_booked', 'call_done', 'verbal', 'loi', 'paying'].includes(s) || (r.call_at && r.call_at > today);
+  // Pulled from events.yml + events-archive.yml — replaces leads.csv:call_at.
+  const hadHistoricalCall = events.leadHadCall(r.linkedin_url);
+  const futureCall = events.eventsByLead(r.linkedin_url).some(e =>
+    e.status === 'scheduled' && e.start && e.start.slice(0, 10) > today);
+  const callDone = s === 'call_done' || hadHistoricalCall;
+  const callBooked = ['call_booked', 'call_done', 'verbal', 'loi', 'paying'].includes(s) || futureCall;
   const hasCall = callDone || callBooked;
   const isVerbal = ['verbal', 'loi', 'paying'].includes(s);
   const isDead = s === 'dead';

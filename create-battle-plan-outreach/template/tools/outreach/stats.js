@@ -79,6 +79,31 @@ if (Object.keys(inmail_tpl).length > 0) {
 // Follow-up performance
 console.log(`\n🔄 Follow-ups: ${followups.sent} sent · ${followups.replied} replied (${fmtPct(followups.replied, followups.sent).trim()}) · ${followups.calls} calls (${fmtPct(followups.calls, followups.sent).trim()})`);
 
+// FU template breakdown — attribution by follow-up template (FU / FU-B / FU-C / FU-FREE / blank=legacy).
+// Connection-note template tracks the FIRST touch (immutable); followup_template tracks what the
+// operator actually wrote on the follow-up. Reply/call attribution per FU style lets you measure
+// "is `FU-B` better for NONE-connected leads than the standard `FU`?"
+const fuByTpl = {};
+for (const r of rows) {
+  if (!r.followed_up_at) continue;
+  const ftpl = r.followup_template || '(legacy)';
+  if (!fuByTpl[ftpl]) fuByTpl[ftpl] = { sent: 0, replied: 0, calls: 0 };
+  fuByTpl[ftpl].sent++;
+  if (r.replied_at) fuByTpl[ftpl].replied++;
+  if (['call_booked', 'call_done', 'verbal', 'loi', 'paying'].includes(r.status)) fuByTpl[ftpl].calls++;
+}
+const FU_ORDER = ['FU', 'FU-B', 'FU-C', 'FU-FREE', '(legacy)'];
+const fuEntries = FU_ORDER.filter(k => fuByTpl[k]);
+if (fuEntries.length > 0) {
+  console.log('\n   FU template breakdown (which follow-up style after accept)');
+  console.log('   Tpl       Sent  Reply  Reply%  Calls  Call%');
+  console.log('   ────────  ────  ─────  ──────  ─────  ─────');
+  for (const k of fuEntries) {
+    const s = fuByTpl[k];
+    console.log(`   ${k.padEnd(8)}  ${String(s.sent).padStart(4)}  ${String(s.replied).padStart(5)}  ${fmtPct(s.replied, s.sent).padStart(6)}  ${String(s.calls).padStart(5)}  ${fmtPct(s.calls, s.sent).padStart(5)}`);
+  }
+}
+
 // Weekly breakdown
 const sortedWeeks = Object.entries(weeks).sort((a, b) => a[0].localeCompare(b[0]));
 if (sortedWeeks.length > 0) {

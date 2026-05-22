@@ -3,14 +3,18 @@ const csv = require('./csv');
 
 const LEADS_PATH = path.resolve(__dirname, '../../../outreach/leads.csv');
 
+// HEADERS — leads.csv schema. The CSV is the source of truth; events live in events.yml.
+// Historical note: `call_at` was removed in the events.yml migration (see migrate-from-csv.js).
+// Existing CSVs with a call_at column still load (csv reader takes live headers from row 1);
+// the column is dropped on the next save once this HEADERS list propagates.
 const HEADERS = [
   'linkedin_url','first_name','last_name','title','company','domain',
   'industry','company_type','employees','revenue','country','email','source','tags','status','priority',
-  'contacted_at','replied_at','call_at','followed_up_at','channel','template','inmail_template','notes'
+  'contacted_at','replied_at','followed_up_at','channel','template','inmail_template','followup_template','notes'
 ];
 
 const VALID_STATUS = new Set([
-  'new','dm_sent','replied','call_booked','call_done','verbal','loi','paying','dead'
+  'new','dm_sent','replied','call_booked','call_done','verbal','loi','paying','dead','withdrawn'
 ]);
 
 function load() {

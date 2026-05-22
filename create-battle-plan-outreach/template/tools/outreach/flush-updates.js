@@ -297,7 +297,7 @@ async function main() {
           tags: 'manual-update',
           status: 'new',
           priority: '60',
-          contacted_at: '', replied_at: '', call_at: '',
+          contacted_at: '', replied_at: '',
           notes: fields.notes || line,
         };
         upsert(rows, lead, { overwrite: false });
@@ -312,8 +312,36 @@ async function main() {
       if (!lead) { unclear.push({ line, reason: `No lead matched ${JSON.stringify(parsed.match)}` }); continue; }
       const prevStatus = lead.status;
       const ch = parsed.changes || {};
-      for (const k of ['status', 'email', 'call_at', 'replied_at', 'contacted_at']) {
+      for (const k of ['status', 'email', 'replied_at', 'contacted_at']) {
         if (ch[k]) lead[k] = ch[k];
+      }
+      // call_at is routed to events.yml — events are the single source of truth for
+      // time-based events. The Haiku schema still emits call_at when the user mentions
+      // "call Thursday 14:00" because that's the easiest English-to-field mapping.
+      if (ch.call_at) {
+        try {
+          const E = require('../events/lib/events');
+          const start = ch.call_at.length === 10 ? `${ch.call_at}T00:00:00+00:00` : ch.call_at;
+          const isFuture = ch.call_at.slice(0, 10) >= today;
+          const state = E.load();
+          const name = [lead.first_name, lead.last_name].filter(Boolean).join(' ') || lead.company;
+          E.upsert(state, {
+            title: `${isFuture ? 'Call (scheduled)' : 'Call'} — ${name}${lead.company ? ` / ${lead.company}` : ''}`,
+            start,
+            end: E.defaultEnd(start, 30),
+            type: 'unspecified',
+            status: isFuture ? 'scheduled' : 'done',
+            attendees: [],
+            lead_id: lead.linkedin_url || null,
+            location: null,
+            notes: null,
+            source: 'flush-updates',
+          });
+          E.save(state);
+        } catch (e) {
+          // events module not installed — fall back to no-op. The user can run
+          // tools/events/migrate-from-csv.js later if they install the events system.
+        }
       }
       if (ch.notes_append) {
         lead.notes = ch.notes_append + ' | ' + (lead.notes || '');

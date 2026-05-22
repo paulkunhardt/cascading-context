@@ -21,8 +21,9 @@
 //   invitations_accepted = rows tagged 'accepted'
 //   demo_candidates      = rows tagged 'demo-candidate'
 //
-//   discovery_calls      = call_at <= today OR status = call_done
-//                          OR (dead AND call_at <= today)
+//   discovery_calls      = status = call_done OR events.leadHadCall(linkedin_url)
+//                          (events.leadHadCall unions events.yml + events-archive.yml — historical
+//                          calls survive after archival, including dead leads that had a call)
 //
 //   calls_booked         = status = 'call_booked' (snapshot)
 //   verbal_commitments   = status in (verbal, loi, paying)
@@ -35,6 +36,11 @@
 const fs = require('fs');
 const path = require('path');
 const { load } = require('./lib/leads');
+// events.yml is the single source of truth for time-based events. Defensive: if the events
+// directory is missing (very old installs), provide a no-op stub so metrics still derive.
+let events;
+try { events = require('../events/lib/events'); }
+catch (e) { events = { leadHadCall: () => false, eventsByLead: () => [] }; }
 
 const ROOT = path.resolve(__dirname, '../..');
 const METRICS = path.join(ROOT, 'metrics.yml');
@@ -99,8 +105,13 @@ function deriveMetrics(rows) {
     const didReply = RESPONSE_STATUSES.has(s) || !!r.replied_at;
     const wasAccepted = tags.includes('accepted');
     const isDemoCandidate = tags.includes('demo-candidate');
-    const callDone = s === 'call_done' || (r.call_at && r.call_at <= today) || (s === 'dead' && r.call_at && r.call_at <= today);
-    const callBooked = CALL_STATUSES.has(s) || (r.call_at && r.call_at > today);
+    // events.yml + events-archive.yml replace the old leads.csv:call_at column. leadHadCall
+    // unions both files so historical calls survive after archival (dead-lead edge case).
+    const hadHistoricalCall = events.leadHadCall(r.linkedin_url);
+    const futureCall = events.eventsByLead(r.linkedin_url).some(e =>
+      e.status === 'scheduled' && e.start && e.start.slice(0, 10) > today);
+    const callDone = s === 'call_done' || hadHistoricalCall;
+    const callBooked = CALL_STATUSES.has(s) || futureCall;
 
     const channel = (r.channel || 'connection').trim();
 

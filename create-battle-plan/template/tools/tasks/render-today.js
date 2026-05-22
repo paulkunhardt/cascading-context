@@ -97,22 +97,33 @@ function renderTaskLine(t, openIds) {
   return parts.join(' ');
 }
 
-function buildCallsSection(leads) {
-  const today = todayStr();
-  const calls = leads.filter(r => r.call_at && r.call_at.startsWith(today) && ['call_booked', 'replied'].includes(r.status));
+function loadEventsLib() {
+  // events.yml is part of the base template, but be defensive in case someone removed it.
+  const eventsLib = path.join(ROOT, 'tools/events/lib/events.js');
+  if (!fs.existsSync(eventsLib)) return null;
+  try { return require(eventsLib); } catch (e) { return null; }
+}
+
+function buildCallsSection() {
+  // events.yml is the single source of truth for time-based events.
+  const events = loadEventsLib();
+  if (!events) return null;
+  const calls = events.todayEvents();
   if (calls.length === 0) return null;
   const lines = ['## Calls & meetings'];
-  for (const c of calls) {
-    const name = [c.first_name, c.last_name].filter(Boolean).join(' ') || '(unnamed)';
-    const time = c.call_at.slice(11, 16) || 'TBD';
-    const note = c.title ? ` (${c.title})` : '';
-    lines.push(`- ${time} — ${name} / ${c.company}${note}`);
+  for (const e of calls) {
+    const time = e.start && e.start.length >= 16 ? e.start.slice(11, 16) : 'TBD';
+    lines.push(`- ${time} — ${e.title}`);
   }
   return lines.join('\n');
 }
 
 function buildPulseSection(leads, metrics) {
-  if (!leads.length && !Object.keys(metrics).length) return null;
+  const events = loadEventsLib();
+  const upcomingEvents = events
+    ? events.upcoming().filter(e => e.start && e.start.slice(0, 10) > todayStr())
+    : [];
+  if (!leads.length && !Object.keys(metrics).length && !upcomingEvents.length) return null;
   const lines = ['## Pulse'];
   if (leads.length) {
     const pipeline = leads.filter(r => ['replied', 'call_booked', 'call_done', 'verbal', 'loi'].includes(r.status));
@@ -121,6 +132,10 @@ function buildPulseSection(leads, metrics) {
   }
   if (metrics.outreach_sent !== undefined) {
     lines.push(`- Total sent: ${metrics.outreach_sent}${metrics.connections_sent !== undefined ? ` (${metrics.connections_sent} conn + ${metrics.inmails_sent} inmail)` : ''} · ${metrics.responses || 0} replies · ${metrics.discovery_calls || 0} calls · ${metrics.verbal_commitments || 0} verbal`);
+  }
+  if (upcomingEvents.length) {
+    const fmt = upcomingEvents.slice(0, 5).map(e => `${e.start.slice(0, 10)} ${e.title}`).join(', ');
+    lines.push(`- Upcoming events (${upcomingEvents.length}): ${fmt}`);
   }
   if (leads.length) {
     const warm = leads.filter(r => r.status === 'replied' && r.replied_at);
@@ -269,7 +284,7 @@ sections.push(header);
 const preamble = `> *Your daily surface. Check the boxes in Obsidian, then flush with \`node tools/tasks/flush-today.js\`.*\n> *Underlying source of truth: \`tasks.yml\`. Never hand-edit that file while this doc has unflushed changes.*`;
 sections.push(preamble);
 
-const callsBlock = buildCallsSection(leads);
+const callsBlock = buildCallsSection();
 if (callsBlock) sections.push(callsBlock);
 
 const pulseBlock = buildPulseSection(leads, metrics);

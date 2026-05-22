@@ -18,5 +18,42 @@
     "sent": 0,
     "replies": 0,
     "calls": 0
+  },
+  "FU": {
+    "text": "Hi [Name], thanks for accepting! As previously stated, I'm exploring [your area] and curious about [specific question]. Would love your perspective — up for a quick 15min chat? [Your Name]",
+    "type": "followup",
+    "track": true,
+    "rationale": "Default follow-up. References the connection note ('as previously stated'). Works for leads connected via A/B/C — does NOT work for NONE (no connection note to reference).",
+    "sent": 0,
+    "replies": 0,
+    "calls": 0
+  },
+  "FU-B": {
+    "text": "Hi [Name], thanks for accepting! I'm exploring [your area] and I'd love your take — is [specific pain point] something you deal with? Happy to share what I've learned. Up for a quick chat? [Your Name]",
+    "type": "followup",
+    "variant_of": "B",
+    "track": true,
+    "rationale": "Follow-up variant for NONE-connected leads. Pitches the problem fresh (no 'previously stated' anchor since there was no connection note).",
+    "sent": 0,
+    "replies": 0,
+    "calls": 0
+  },
+  "FU-C": {
+    "text": "Hi [Name], thanks for accepting! Quick ask — I'm validating [your problem area] and looking for feedback from people who do this work. Up for a 15min chat? [Your Name]",
+    "type": "followup",
+    "track": true,
+    "rationale": "Follow-up variant for NONE-connected leads. Direct call-ask opener.",
+    "sent": 0,
+    "replies": 0,
+    "calls": 0
+  },
+  "FU-FREE": {
+    "text": "(freelance — bespoke message tailored to the lead, not from a template)",
+    "type": "followup",
+    "track": true,
+    "rationale": "Marker for hand-written follow-ups. Use when none of FU/FU-B/FU-C fits and you composed something custom. Lets you measure 'tailored vs templated' over time.",
+    "sent": 0,
+    "replies": 0,
+    "calls": 0
   }
 }
