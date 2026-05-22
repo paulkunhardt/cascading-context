@@ -19,7 +19,7 @@ npx create-battle-plan-outreach         # add the outreach pipeline (optional)
 
 ## Why?
 
-This naturally evolved during a 3-week validation sprint for a startup idea. Timeboxed, clear focussed tasks, new content every day. If you can record and transcribe every relevant meeting, web research, outreach replies, new hypotheses to log, metrics, etc. and then dump all of that into Claude Code, in theory it could turn into YOUR project manager, not the other way around. Without a system to manage all of this context, however, it will inevitably lead to context bloat, stale facts and lots of duplicates.
+This naturally evolved during a 3-month validation sprint for a startup idea. Timeboxed, clear focussed tasks, new content every day. If you can record and transcribe every relevant meeting, web research, outreach replies, new hypotheses to log, metrics, etc. and then dump all of that into Claude Code, in theory it could turn into YOUR project manager, not the other way around. Without a system to manage all of this context, however, it will inevitably lead to context bloat, stale facts and lots of duplicates.
 
 I wanted a setup where:
 
