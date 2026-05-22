@@ -24,6 +24,18 @@
 //   discovery_calls      = status = call_done OR events.leadHadCall(linkedin_url)
 //                          (events.leadHadCall unions events.yml + events-archive.yml — historical
 //                          calls survive after archival, including dead leads that had a call)
+//                          CAVEAT: a lead whose call happened but whose status was
+//                          later flipped to `dead` is counted ONLY IF the call was
+//                          also logged as an event in events.yml/events-archive.yml.
+//                          If the operator booked + held a call but never logged it
+//                          as an event AND then moved the lead to `dead`, the call
+//                          silently drops from this metric. Practical guarantee:
+//                          every call held should be added via tools/events/add.js
+//                          before any lead-status change. If you discover discovery_calls
+//                          undercounting historical activity, look for `dead` leads
+//                          with prior call timestamps in their notes that were never
+//                          recorded in events.yml — backfill them with
+//                          `node tools/events/add.js --title ... --start ...`.
 //
 //   calls_booked         = status = 'call_booked' (snapshot)
 //   verbal_commitments   = status in (verbal, loi, paying)

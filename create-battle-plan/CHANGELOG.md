@@ -5,6 +5,61 @@ All notable changes to `create-battle-plan` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-05-22
+
+### Added
+- **`verify-cascade.sh` — four new checks (7-10) that catch real classes of
+  cascade-system bugs.** Each check has an inline docstring explaining the
+  failure mode it guards against:
+  - **Check 7 — Qualitative wrappers near metric links.** Flags phrases like
+    "exceeded N", "target hit ✓", "Nx better" that appear on the same line as
+    a `metrics.yml#` reference. These wrappers can become factually wrong
+    after `sync-metrics` auto-updates the linked number — the substitution
+    is silent, the wrapper is now wrong, and nothing else surfaces it. Tunable
+    via `QUALITATIVE_REGEX`. Warnings only, never errors.
+  - **Check 8 — Personal-surface files on disk.** Catches the case where
+    `tasks.yml`, `events.yml`, or `events-archive.yml` are missing on disk.
+    These files are typically gitignored but the scripts (`render-today.js`,
+    `due-for-gate.js`) silently no-op when they're absent, so a stray
+    `git rm` (instead of `git rm --cached`) can delete them and create empty
+    surfaces for days before anyone notices. Git-history-aware: errors only
+    if the file was previously tracked (real recovery scenario); silently
+    notes "not bootstrapped" if the file has never been tracked (fresh
+    install — run `tools/init-project.sh` or create empty stubs). Includes
+    recovery instructions using `git log --diff-filter=D`.
+  - **Check 9 — Amended-doc UPDATE block discipline.** For every doc with
+    `Compression: amended`, diffs against `origin/main` (fallback `HEAD`) and
+    warns if content lines were added without a new
+    `> **[UPDATE YYYY-MM-DD · Source: ...]**` block. Catches silent rewrites
+    that break `/distill`'s ability to tell old from new. Skipped silently in
+    fresh repos without git history.
+  - **Check 10 — Chronological-doc dated headings.** For every doc with
+    `Compression: chronological`, diffs against the same base and warns when
+    new `##` or `###` headings don't match the dated patterns
+    (`YYYY-MM-DD`, `Session N (YYYY-MM-DD)`, `Day N`). Standard fixed
+    headings (TL;DR, Status, Daily Log, etc.) are exempted via
+    `FIXED_HEADING_REGEX`, which you can extend for project-specific sections.
+- **Shared `FIND_EXCLUDES` list** in `verify-cascade.sh` — every check now
+  skips `examples/`, `superpowers/`, `archive/`, `social/`, `today-archive/`,
+  `today.md`, and `CLAUDE.md`. Previously these were inline-duplicated on each
+  `find`, causing checks to fire false-positive warnings on plugin-skill docs
+  and archived snapshots.
+
+### Fixed
+- `verify-cascade.sh` Check 6 (`today.md` freshness) now emits a "today.md is
+  fresh relative to tasks.yml" confirmation line on success, matching the
+  output style of the other checks. Previously silent on success.
+
+### Migration
+- Fully additive. Existing installs: re-run `tools/verify-cascade.sh` after
+  updating — Checks 9 & 10 silently skip in repos without `origin/main` or
+  `HEAD`, so a fresh-clone smoke run still works. Existing repos may surface
+  new warnings from Checks 7-10 on the first run; treat them as a one-time
+  audit pass rather than a regression. None of the new checks are blocking
+  errors except Check 8 (missing on-disk personal-surface files that were
+  once tracked in git), which is a real recoverable failure.
+- No schema break in `metrics.yml`, `tasks.yml`, `events.yml`, or any doc.
+
 ## [1.4.0] - 2026-05-11
 
 ### Added

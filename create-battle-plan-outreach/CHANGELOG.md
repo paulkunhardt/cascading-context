@@ -5,6 +5,42 @@ All notable changes to `create-battle-plan-outreach` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-05-22
+
+### Added
+- **`tools/outreach/triage.js` — read-only lead-triage report.** Surfaces 4
+  buckets of leads that need attention: ⚠️ Ball in our court (status=replied,
+  no follow-up since their reply, ≥2d), Awaiting reply (we followed up ≥4d ago,
+  no response — top 10 by priority), Silent accepts (status=dm_sent + `accepted`
+  tag + no reply + last touch ≥7d — top 10 by priority), and Stalled active
+  (status in {call_done, verbal, call_booked} + last touch ≥7d). Flags:
+  `--bucket BUCKET` to filter to one bucket, `--limit N` to override the top-10
+  caps on bounded buckets, `--json` for programmatic consumers. Defaults to a
+  markdown report on stdout. Pairs well with an interactive triage skill that
+  walks each bucket one lead at a time, but works standalone as a periodic
+  pipeline-hygiene sweep. Tunable thresholds at the top of the file;
+  `DEAD_TAGS` is empty by default — extend it with project-specific
+  terminal-but-not-status-dead tags (e.g. `gatekeeper-decline`, `wrong-icp`).
+
+### Changed
+- **`sync-metrics.js` — expanded `discovery_calls` derivation docstring.**
+  Added a CAVEAT block documenting a real failure mode: a lead whose call
+  happened but whose status was later flipped to `dead` is only counted if the
+  call was also logged as an event in `events.yml` / `events-archive.yml`. If
+  the operator held a call but never logged it as an event AND then moved the
+  lead to `dead`, the call silently drops from this metric. Practical
+  guarantee documented: every call held should be added via
+  `tools/events/add.js` *before* any lead-status change. Recovery hint
+  included for undercounted historical activity (grep `dead` leads for prior
+  call timestamps in their notes, backfill via `events/add.js`). No logic
+  change — docstring only.
+
+### Migration
+- Fully additive. New file `tools/outreach/triage.js` is optional — nothing
+  else in the system depends on it. Existing installs can adopt it by copying
+  the file across from the template, or by re-running the scaffolder.
+- No schema break in `leads.csv`, `metrics.yml`, `events.yml`, or any doc.
+
 ## [1.4.0] - 2026-05-11
 
 ### Changed (breaking-but-backwards-compatible)
@@ -162,6 +198,7 @@ anchored to the old DM date. You have two options:
 - CSV-powered outreach pipeline with daily blitz, metrics sync, and
   mermaid dashboards as a Battle Plan add-on.
 
+[1.4.1]: https://github.com/paulkunhardt/battle-plan/releases/tag/outreach-v1.4.1
 [1.4.0]: https://github.com/paulkunhardt/battle-plan/releases/tag/outreach-v1.4.0
 [1.3.0]: https://github.com/paulkunhardt/battle-plan/releases/tag/outreach-v1.3.0
 [1.2.2]: https://github.com/paulkunhardt/battle-plan/releases/tag/outreach-v1.2.2
