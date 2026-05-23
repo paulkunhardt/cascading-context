@@ -71,14 +71,6 @@ function ask(question) {
   });
 }
 
-async function askRequired(question, errorMsg) {
-  while (true) {
-    const answer = await ask(question);
-    if (answer) return answer;
-    console.log(`${YELLOW}   ${errorMsg}${RESET}`);
-  }
-}
-
 // ── Interactive folder picker (raw mode) ─────────────────
 
 function getDirs(dir) {
@@ -317,66 +309,155 @@ async function main() {
 
   initReadline();
 
-  // Question 1: Project description (one sentence — used for context, not the folder name)
-  const projectName = await askRequired(
-    `${DIM}[1/7]${RESET} ${BOLD}What's your project in one sentence?${RESET}\n> `,
-    'A one-sentence description is required — even rough is fine. Try again:'
-  );
+  // Type `:back` (or `:b`) at any prompt to revise the previous answer.
+  console.log(`${DIM}   tip: type ${BOLD}:back${RESET}${DIM} at any prompt to revise the previous answer${RESET}`);
   console.log('');
 
-  // Question 2: Short name (the actual folder slug). Default = cwd basename when sensible.
-  const cwdBasename = path.basename(process.cwd());
-  const cwdSlug = slugify(cwdBasename);
-  const cwdIsEmpty = (() => {
-    try { return fs.readdirSync(process.cwd()).length === 0; } catch { return false; }
-  })();
-  const sentenceSlug = slugify(projectName);
-  const truncatedSentenceSlug = sentenceSlug.split('-').slice(0, 3).join('-');
-  const genericNames = new Set(['projects', 'code', 'src', 'work', 'dev', 'repos', 'workspace', 'documents', 'desktop']);
-  const defaultShortName = (cwdIsEmpty && cwdSlug && !genericNames.has(cwdSlug))
-    ? cwdSlug
-    : (truncatedSentenceSlug || 'my-battle-plan');
-  const shortNameRaw = await ask(
-    `${DIM}[2/7]${RESET} ${BOLD}Short name for the folder?${RESET} ${DIM}(default: ${defaultShortName})${RESET}\n> `
-  );
-  const shortName = slugify(shortNameRaw) || defaultShortName;
-  console.log('');
+  const isBack = (s) => {
+    const t = s.trim().toLowerCase();
+    return t === ':back' || t === ':b';
+  };
 
-  // Question 3: Time horizon
-  const horizon = await ask(
-    `${DIM}[3/7]${RESET} ${BOLD}What's your time horizon?${RESET} ${DIM}(e.g., "3 weeks to demo day", "6 months to launch", "ongoing")${RESET}\n> `
-  );
-  console.log('');
+  // Each step reads `a` (answers so far) and writes its key. Returns {back:true}
+  // to step backwards, or {value} to advance. When `a[key]` already has a value
+  // (revisit), prompts show "press enter to keep" and accept empty input.
+  const a = {};
 
-  // Question 4: Metrics (optional — leave blank for journal-style projects)
-  const metricsRaw = await ask(
-    `${DIM}[4/7]${RESET} ${BOLD}Any metrics to track?${RESET} ${DIM}(comma-separated, e.g., "outreach sent, calls booked, LOIs signed" — or press enter to skip)${RESET}\n> `
-  );
-  const metrics = metricsRaw
-    ? metricsRaw.split(',').map((m) => m.trim()).filter(Boolean)
-    : [];
-  console.log('');
+  async function stepProject() {
+    const prior = a.projectName;
+    const hint = prior ? ` ${DIM}(currently: "${prior.length > 40 ? prior.slice(0, 40) + '…' : prior}" — enter to keep)${RESET}` : '';
+    while (true) {
+      const raw = await ask(`${DIM}[1/7]${RESET} ${BOLD}What's your project in one sentence?${RESET}${hint}\n> `);
+      if (isBack(raw)) return { back: true };
+      const v = raw.trim() || prior;
+      if (!v) {
+        console.log(`${YELLOW}   A one-sentence description is required — even rough is fine. Try again:${RESET}`);
+        continue;
+      }
+      return { value: v };
+    }
+  }
 
-  // Question 5: Domains
-  const suggested = suggestDomains(projectName);
-  const domainsRaw = await askRequired(
-    `${DIM}[5/7]${RESET} ${BOLD}What domains does your work cover?${RESET} ${DIM}(comma-separated)\nSuggested based on your project: ${suggested}${RESET}\n> `,
-    `At least one domain is required — try the suggestions (${suggested}) or any topic area. Try again:`
-  );
-  const domains = domainsRaw.split(',').map((d) => d.trim().toLowerCase()).filter(Boolean);
-  console.log('');
+  async function stepShortName() {
+    const cwdBasename = path.basename(process.cwd());
+    const cwdSlug = slugify(cwdBasename);
+    const cwdIsEmpty = (() => {
+      try { return fs.readdirSync(process.cwd()).length === 0; } catch { return false; }
+    })();
+    const sentenceSlug = slugify(a.projectName);
+    const truncatedSentenceSlug = sentenceSlug.split('-').slice(0, 3).join('-');
+    const genericNames = new Set(['projects', 'code', 'src', 'work', 'dev', 'repos', 'workspace', 'documents', 'desktop']);
+    const defaultShortName = (cwdIsEmpty && cwdSlug && !genericNames.has(cwdSlug))
+      ? cwdSlug
+      : (truncatedSentenceSlug || 'my-battle-plan');
+    const prior = a.shortName;
+    const hint = prior
+      ? `${DIM}(currently: "${prior}" — enter to keep)${RESET}`
+      : `${DIM}(default: ${defaultShortName})${RESET}`;
+    const raw = await ask(`${DIM}[2/7]${RESET} ${BOLD}Short name for the folder?${RESET} ${hint}\n> `);
+    if (isBack(raw)) return { back: true };
+    const trimmed = raw.trim();
+    const value = trimmed
+      ? (slugify(trimmed) || defaultShortName)
+      : (prior || defaultShortName);
+    return { value };
+  }
 
-  // Question 6: People
-  const peopleRaw = await ask(
-    `${DIM}[6/7]${RESET} ${BOLD}Who are the key people you'll be working with?${RESET} ${DIM}(format: "Name:Role, Name:Role" — or press enter to skip)${RESET}\n> `
-  );
-  const people = peopleRaw
-    ? peopleRaw.split(',').map((p) => {
+  async function stepHorizon() {
+    const prior = a.horizon;
+    const hint = prior
+      ? `${DIM}(currently: "${prior}" — enter to keep)${RESET}`
+      : `${DIM}(e.g., "3 weeks to demo day", "6 months to launch", "ongoing")${RESET}`;
+    const raw = await ask(`${DIM}[3/7]${RESET} ${BOLD}What's your time horizon?${RESET} ${hint}\n> `);
+    if (isBack(raw)) return { back: true };
+    const trimmed = raw.trim();
+    return { value: trimmed || prior || '' };
+  }
+
+  async function stepMetrics() {
+    const prior = a.metrics;
+    const priorDisplay = prior && prior.length ? prior.join(', ') : '';
+    const hint = priorDisplay
+      ? `${DIM}(currently: "${priorDisplay}" — enter to keep, type "none" to clear)${RESET}`
+      : `${DIM}(comma-separated, e.g., "outreach sent, calls booked, LOIs signed" — or press enter to skip)${RESET}`;
+    const raw = await ask(`${DIM}[4/7]${RESET} ${BOLD}Any metrics to track?${RESET} ${hint}\n> `);
+    if (isBack(raw)) return { back: true };
+    const trimmed = raw.trim();
+    if (trimmed.toLowerCase() === 'none') return { value: [] };
+    if (!trimmed) return { value: prior || [] };
+    return { value: trimmed.split(',').map((m) => m.trim()).filter(Boolean) };
+  }
+
+  async function stepDomains() {
+    const prior = a.domains;
+    const suggested = suggestDomains(a.projectName);
+    const priorDisplay = prior && prior.length ? prior.join(', ') : '';
+    const hint = priorDisplay
+      ? `${DIM}(currently: "${priorDisplay}" — enter to keep)${RESET}`
+      : `${DIM}(comma-separated)\nSuggested based on your project: ${suggested}${RESET}`;
+    while (true) {
+      const raw = await ask(`${DIM}[5/7]${RESET} ${BOLD}What domains does your work cover?${RESET} ${hint}\n> `);
+      if (isBack(raw)) return { back: true };
+      const trimmed = raw.trim();
+      if (!trimmed) {
+        if (prior && prior.length) return { value: prior };
+        console.log(`${YELLOW}   At least one domain is required — try the suggestions (${suggested}) or any topic area. Try again:${RESET}`);
+        continue;
+      }
+      return { value: trimmed.split(',').map((d) => d.trim().toLowerCase()).filter(Boolean) };
+    }
+  }
+
+  async function stepPeople() {
+    const prior = a.people;
+    const priorDisplay = prior && prior.length ? prior.map((p) => `${p.name}:${p.role}`).join(', ') : '';
+    const hint = priorDisplay
+      ? `${DIM}(currently: "${priorDisplay}" — enter to keep, type "none" to clear)${RESET}`
+      : `${DIM}(format: "Name:Role, Name:Role" — or press enter to skip)${RESET}`;
+    const raw = await ask(`${DIM}[6/7]${RESET} ${BOLD}Who are the key people you'll be working with?${RESET} ${hint}\n> `);
+    if (isBack(raw)) return { back: true };
+    const trimmed = raw.trim();
+    if (trimmed.toLowerCase() === 'none') return { value: [] };
+    if (!trimmed) return { value: prior || [] };
+    return {
+      value: trimmed.split(',').map((p) => {
         const [name, role] = p.split(':').map((s) => s.trim());
         return { name: name || '', role: role || '' };
-      }).filter((p) => p.name)
-    : [];
-  console.log('');
+      }).filter((p) => p.name),
+    };
+  }
+
+  const steps = [
+    { key: 'projectName', run: stepProject },
+    { key: 'shortName', run: stepShortName },
+    { key: 'horizon', run: stepHorizon },
+    { key: 'metrics', run: stepMetrics },
+    { key: 'domains', run: stepDomains },
+    { key: 'people', run: stepPeople },
+  ];
+
+  let i = 0;
+  while (i < steps.length) {
+    const r = await steps[i].run();
+    if (r.back) {
+      if (i === 0) {
+        console.log(`${YELLOW}   Already at the first question.${RESET}`);
+        continue;
+      }
+      i--;
+      continue;
+    }
+    a[steps[i].key] = r.value;
+    console.log('');
+    i++;
+  }
+
+  const projectName = a.projectName;
+  const shortName = a.shortName;
+  const horizon = a.horizon;
+  const metrics = a.metrics;
+  const domains = a.domains;
+  const people = a.people;
 
   // Question 7: Interactive folder picker
   const targetDir = await pickFolder(shortName);

@@ -5,6 +5,19 @@ All notable changes to `create-battle-plan` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.5] - 2026-05-23
+
+### Added
+- **`:back` command for revising previous answers.** Mistyped Q2 and only
+  noticed at Q4? Type `:back` (or `:b`) at any prompt to step backwards.
+  Chains — keep typing `:back` to go further. Each revisited prompt shows
+  the current value with an "enter to keep" hint, so empty input no longer
+  means "reset to default" when there's already an answer. Optional
+  multi-value fields (`metrics`, `people`) accept the sentinel `none` to
+  explicitly clear a prior value. A one-line tip at the top of the wizard
+  documents the command. The folder picker (Q7) doesn't support `:back` —
+  press `q` there to cancel and re-run.
+
 ## [1.4.4] - 2026-05-23
 
 ### Changed
