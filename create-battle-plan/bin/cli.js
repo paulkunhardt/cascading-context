@@ -348,12 +348,13 @@ async function main() {
   );
   console.log('');
 
-  // Question 4: Metrics
-  const metricsRaw = await askRequired(
-    `${DIM}[4/7]${RESET} ${BOLD}What are the 3-5 key metrics you want to track?${RESET} ${DIM}(comma-separated, e.g., "outreach sent, calls booked, LOIs signed")${RESET}\n> `,
-    'At least one metric is required — pick anything quantifiable you care about. You can rename or add more later in metrics.yml. Try again:'
+  // Question 4: Metrics (optional — leave blank for journal-style projects)
+  const metricsRaw = await ask(
+    `${DIM}[4/7]${RESET} ${BOLD}Any metrics to track?${RESET} ${DIM}(comma-separated, e.g., "outreach sent, calls booked, LOIs signed" — or press enter to skip)${RESET}\n> `
   );
-  const metrics = metricsRaw.split(',').map((m) => m.trim()).filter(Boolean);
+  const metrics = metricsRaw
+    ? metricsRaw.split(',').map((m) => m.trim()).filter(Boolean)
+    : [];
   console.log('');
 
   // Question 5: Domains
@@ -454,7 +455,11 @@ _Start adding content here._
 
   console.log(`${DIM}   + docs/ (${domains.length} domain${domains.length > 1 ? 's' : ''})${RESET}`);
 
-  // Create metrics.yml
+  // Create metrics.yml — file always exists so scripts have a target, even if no
+  // metrics were declared (journal-style projects). The LLM can add metrics later.
+  const metricsBody = metrics.length
+    ? metrics.map((m) => `${metricKey(m)}: 0`).join('\n') + '\n'
+    : '# No metrics declared yet. Add them as `key: value` below when ready.\n';
   const metricsContent = [
     `# metrics.yml — project-wide metrics registry for ${projectName}`,
     '# The LLM updates this file FIRST in any cascade, before touching docs.',
@@ -462,16 +467,33 @@ _Start adding content here._
     '',
     `last_updated: ${today}`,
     '',
-    ...metrics.map((m) => `${metricKey(m)}: 0`),
-    '',
+    metricsBody,
   ].join('\n');
   fs.writeFileSync(path.join(targetDir, 'metrics.yml'), metricsContent);
-  console.log(`${DIM}   + metrics.yml (${metrics.length} metric${metrics.length > 1 ? 's' : ''})${RESET}`);
+  console.log(
+    `${DIM}   + metrics.yml (${metrics.length === 0 ? 'no metrics yet' : `${metrics.length} metric${metrics.length > 1 ? 's' : ''}`})${RESET}`
+  );
 
-  // Create battle plan
-  const metricsTable = metrics
-    .map((m) => `| ${m} | _set target_ | **0** (→ metrics.yml#${metricKey(m)}) |`)
-    .join('\n');
+  // Create battle plan — conditionally include Key Metrics section
+  const metricsSection = metrics.length
+    ? `## Key Metrics
+
+| Metric | Target | Current |
+|--------|--------|---------|
+${metrics.map((m) => `| ${m} | _set target_ | **0** (→ metrics.yml#${metricKey(m)}) |`).join('\n')}
+
+---
+
+`
+    : '';
+
+  const tldr = metrics.length
+    ? `${projectName} — just initialized. Time horizon: ${horizon || 'not set'}. All metrics at 0. First priority: fill in the battle plan with real tasks and targets.`
+    : `${projectName} — just initialized. Time horizon: ${horizon || 'not set'}. No metrics tracked yet (journal-style project). First priority: fill in the battle plan with real tasks.`;
+
+  const firstPriority = metrics.length
+    ? '- [ ] Set targets for each metric\n- [ ] Fill in this week\'s tasks\n- [ ] Record any existing conversations in external-insights.md'
+    : '- [ ] Fill in this week\'s tasks\n- [ ] Record any existing conversations in external-insights.md';
 
   fs.writeFileSync(
     path.join(targetDir, 'docs', 'battle-plan.md'),
@@ -482,7 +504,7 @@ _Start adding content here._
 **Role:** source-of-truth
 **Compression:** chronological
 
-**TL;DR:** ${projectName} — just initialized. Time horizon: ${horizon || 'not set'}. All metrics at 0. First priority: fill in the battle plan with real tasks and targets.
+**TL;DR:** ${tldr}
 
 ---
 
@@ -495,19 +517,9 @@ _Start adding content here._
 
 ---
 
-## Key Metrics
+${metricsSection}## Today's Priorities
 
-| Metric | Target | Current |
-|--------|--------|---------|
-${metricsTable}
-
----
-
-## Today's Priorities
-
-- [ ] Set targets for each metric
-- [ ] Fill in this week's tasks
-- [ ] Record any existing conversations in external-insights.md
+${firstPriority}
 
 ---
 

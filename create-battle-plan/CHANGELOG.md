@@ -5,6 +5,19 @@ All notable changes to `create-battle-plan` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.4] - 2026-05-23
+
+### Changed
+- **Metrics are now optional.** For journal-style or personal-context projects
+  (brain dumps, life admin, anything where "what would I count?" has no good
+  answer), press enter at Q4 to skip. The scaffolder then:
+  - writes `metrics.yml` with a placeholder comment instead of metric keys;
+  - omits the "Key Metrics" section from `battle-plan.md` entirely;
+  - tweaks the TL;DR and first-day priorities to drop the "set targets"
+    bullet.
+  Existing scripts (`check-metrics.sh`, `verify-cascade.sh`) already handle
+  empty metrics safely — they only check references when they exist.
+
 ## [1.4.3] - 2026-05-23
 
 ### Fixed
