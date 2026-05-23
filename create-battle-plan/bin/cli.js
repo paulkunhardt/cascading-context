@@ -84,7 +84,11 @@ function getDirs(dir) {
   }
 }
 
-function pickFolder(projectSlug) {
+function isDirEmpty(dir) {
+  try { return fs.readdirSync(dir).length === 0; } catch { return false; }
+}
+
+function pickFolder(shortName) {
   return new Promise((resolve) => {
     // Pause readline so we can use raw mode
     closeReadline();
@@ -97,8 +101,14 @@ function pickFolder(projectSlug) {
     function getOptions() {
       const dirs = getDirs(cwd);
       const options = [];
+      if (isDirEmpty(cwd)) {
+        options.push({
+          label: `${GREEN}● Install in this folder ${BOLD}(${path.basename(cwd)}/)${RESET}${GREEN} — no subfolder${RESET}`,
+          action: 'here_no_sub',
+        });
+      }
       options.push({ label: `${GREEN}+ Create new folder here${RESET}`, action: 'create' });
-      options.push({ label: `${CYAN}» Install here as ${BOLD}${projectSlug}/${RESET}`, action: 'here' });
+      options.push({ label: `${CYAN}» Install here as ${BOLD}${shortName}/${RESET}`, action: 'here' });
       if (path.dirname(cwd) !== cwd) {
         options.push({ label: `${DIM}../${RESET}  ${DIM}(up)${RESET}`, action: 'up' });
       }
@@ -116,14 +126,14 @@ function pickFolder(projectSlug) {
       let output = '';
 
       if (mode === 'input') {
-        output += `${CLEAR_LINE}\r${DIM}[6/6]${RESET} ${BOLD}Folder name:${RESET} ${inputBuffer}\x1b[K`;
+        output += `${CLEAR_LINE}\r${DIM}[7/7]${RESET} ${BOLD}Folder name:${RESET} ${inputBuffer}\x1b[K`;
         process.stdout.write(output);
         return;
       }
 
       output += `\x1b[H\x1b[2J`; // clear screen
       output += `\n`;
-      output += `${DIM}[6/6]${RESET} ${BOLD}Where do you want to install it?${RESET}\n`;
+      output += `${DIM}[7/7]${RESET} ${BOLD}Where do you want to install it?${RESET}\n`;
       output += `${DIM}      ${display}${RESET}\n`;
       output += `\n`;
       output += `${DIM}      ↑↓ navigate · enter select · q cancel${RESET}\n`;
@@ -156,12 +166,14 @@ function pickFolder(projectSlug) {
         const opt = options[selected];
         if (opt.action === 'create') {
           mode = 'input';
-          inputBuffer = projectSlug;
+          inputBuffer = shortName;
           process.stdout.write(`\x1b[H\x1b[2J`);
           process.stdout.write(`\n`);
-          process.stdout.write(`${DIM}[6/6]${RESET} ${BOLD}Folder name:${RESET} ${inputBuffer}`);
+          process.stdout.write(`${DIM}[7/7]${RESET} ${BOLD}Folder name:${RESET} ${inputBuffer}`);
         } else if (opt.action === 'here') {
-          finish(path.join(cwd, projectSlug));
+          finish(path.join(cwd, shortName));
+        } else if (opt.action === 'here_no_sub') {
+          finish(cwd);
         } else if (opt.action === 'up') {
           cwd = path.dirname(cwd);
           selected = 0;
@@ -189,7 +201,7 @@ function pickFolder(projectSlug) {
         // Backspace
         inputBuffer = inputBuffer.slice(0, -1);
         process.stdout.write(`\r${CLEAR_LINE}`);
-        process.stdout.write(`${DIM}[6/6]${RESET} ${BOLD}Folder name:${RESET} ${inputBuffer}`);
+        process.stdout.write(`${DIM}[7/7]${RESET} ${BOLD}Folder name:${RESET} ${inputBuffer}`);
       } else if (key === '\x1b' || key === '\x03') {
         // Escape or ctrl-c → back to browse
         mode = 'browse';
@@ -210,7 +222,7 @@ function pickFolder(projectSlug) {
       cleanup();
       process.stdout.write(`\x1b[H\x1b[2J`);
       console.log('');
-      console.log(`${DIM}[6/6]${RESET} ${BOLD}Location:${RESET} ${shortPath(dir)}`);
+      console.log(`${DIM}[7/7]${RESET} ${BOLD}Location:${RESET} ${shortPath(dir)}`);
       console.log('');
       resolve(dir);
     }
@@ -297,37 +309,55 @@ async function main() {
 
   initReadline();
 
-  // Question 1: Project name
-  const projectName = await ask(`${DIM}[1/6]${RESET} ${BOLD}What's your project in one sentence?${RESET}\n> `);
+  // Question 1: Project description (one sentence — used for context, not the folder name)
+  const projectName = await ask(`${DIM}[1/7]${RESET} ${BOLD}What's your project in one sentence?${RESET}\n> `);
   if (!projectName) { console.log('Project name is required.'); process.exit(1); }
   console.log('');
 
-  // Question 2: Time horizon
+  // Question 2: Short name (the actual folder slug). Default = cwd basename when sensible.
+  const cwdBasename = path.basename(process.cwd());
+  const cwdSlug = slugify(cwdBasename);
+  const cwdIsEmpty = (() => {
+    try { return fs.readdirSync(process.cwd()).length === 0; } catch { return false; }
+  })();
+  const sentenceSlug = slugify(projectName);
+  const truncatedSentenceSlug = sentenceSlug.split('-').slice(0, 3).join('-');
+  const genericNames = new Set(['projects', 'code', 'src', 'work', 'dev', 'repos', 'workspace', 'documents', 'desktop']);
+  const defaultShortName = (cwdIsEmpty && cwdSlug && !genericNames.has(cwdSlug))
+    ? cwdSlug
+    : (truncatedSentenceSlug || 'my-battle-plan');
+  const shortNameRaw = await ask(
+    `${DIM}[2/7]${RESET} ${BOLD}Short name for the folder?${RESET} ${DIM}(default: ${defaultShortName})${RESET}\n> `
+  );
+  const shortName = slugify(shortNameRaw) || defaultShortName;
+  console.log('');
+
+  // Question 3: Time horizon
   const horizon = await ask(
-    `${DIM}[2/6]${RESET} ${BOLD}What's your time horizon?${RESET} ${DIM}(e.g., "3 weeks to demo day", "6 months to launch", "ongoing")${RESET}\n> `
+    `${DIM}[3/7]${RESET} ${BOLD}What's your time horizon?${RESET} ${DIM}(e.g., "3 weeks to demo day", "6 months to launch", "ongoing")${RESET}\n> `
   );
   console.log('');
 
-  // Question 3: Metrics
+  // Question 4: Metrics
   const metricsRaw = await ask(
-    `${DIM}[3/6]${RESET} ${BOLD}What are the 3-5 key metrics you want to track?${RESET} ${DIM}(comma-separated, e.g., "outreach sent, calls booked, LOIs signed")${RESET}\n> `
+    `${DIM}[4/7]${RESET} ${BOLD}What are the 3-5 key metrics you want to track?${RESET} ${DIM}(comma-separated, e.g., "outreach sent, calls booked, LOIs signed")${RESET}\n> `
   );
   if (!metricsRaw) { console.log('At least one metric is required.'); process.exit(1); }
   const metrics = metricsRaw.split(',').map((m) => m.trim()).filter(Boolean);
   console.log('');
 
-  // Question 4: Domains
+  // Question 5: Domains
   const suggested = suggestDomains(projectName);
   const domainsRaw = await ask(
-    `${DIM}[4/6]${RESET} ${BOLD}What domains does your work cover?${RESET} ${DIM}(comma-separated)\nSuggested based on your project: ${suggested}${RESET}\n> `
+    `${DIM}[5/7]${RESET} ${BOLD}What domains does your work cover?${RESET} ${DIM}(comma-separated)\nSuggested based on your project: ${suggested}${RESET}\n> `
   );
   if (!domainsRaw) { console.log('At least one domain is required.'); process.exit(1); }
   const domains = domainsRaw.split(',').map((d) => d.trim().toLowerCase()).filter(Boolean);
   console.log('');
 
-  // Question 5: People
+  // Question 6: People
   const peopleRaw = await ask(
-    `${DIM}[5/6]${RESET} ${BOLD}Who are the key people you'll be working with?${RESET} ${DIM}(format: "Name:Role, Name:Role" — or press enter to skip)${RESET}\n> `
+    `${DIM}[6/7]${RESET} ${BOLD}Who are the key people you'll be working with?${RESET} ${DIM}(format: "Name:Role, Name:Role" — or press enter to skip)${RESET}\n> `
   );
   const people = peopleRaw
     ? peopleRaw.split(',').map((p) => {
@@ -337,9 +367,8 @@ async function main() {
     : [];
   console.log('');
 
-  // Question 6: Interactive folder picker
-  const projectSlug = slugify(projectName) || 'my-battle-plan';
-  const targetDir = await pickFolder(projectSlug);
+  // Question 7: Interactive folder picker
+  const targetDir = await pickFolder(shortName);
 
   // Re-init readline for any future questions
   initReadline();

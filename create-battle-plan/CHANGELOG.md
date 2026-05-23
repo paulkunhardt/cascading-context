@@ -5,6 +5,26 @@ All notable changes to `create-battle-plan` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2026-05-23
+
+### Fixed
+- **Folder name no longer derives from the one-sentence description.** The Q1
+  answer (e.g. "Personal admin work like bills, taxes, private events, and
+  anything unrelated to work.") used to be slugified verbatim into an 80-char
+  default folder name. Now Q1 stays a description (used in `battle-plan.md`
+  TL;DR and Claude context), and a new **Q2 — "Short name for the folder?"**
+  asks for the slug separately. Default is `path.basename(process.cwd())` when
+  the cwd is empty and not a generic parent like `Projects`/`Documents`, so the
+  common flow `mkdir paul-admin && cd paul-admin && npx create-battle-plan`
+  picks `paul-admin` automatically — just press enter.
+
+### Added
+- **"Install in this folder (no subfolder)" option in the folder picker.**
+  When `process.cwd()` is empty, the picker now offers installing files
+  directly into cwd (no nested subfolder). Default-selected. Fixes the
+  `mkdir paul-admin && cd paul-admin && ...` mental model that previously
+  produced `~/Projects/paul-admin/paul-admin/`.
+
 ## [1.4.1] - 2026-05-22
 
 ### Added
