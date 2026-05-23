@@ -43,6 +43,8 @@ I use this every day and so far it's been a lot of fun.
 - You have specific targets you're trying to hit: calls booked, customers signed, experiments run, papers read
 - You've already hit the wall where your LLM session gets too long, starts forgetting things, or starts hallucinating older context
 
+**A note on flexibility.** Battle Plan was built for, and is still primarily aimed at, founders validating an idea. That's the shape the templates, the default metrics, the cascade docs, and the outreach add-on are tuned for. But the underlying mechanic (markdown memory + cascade + distillation + triage) works for any project where you accumulate context over time and want an LLM to manage it for you. People have used it as a personal admin layer, an ongoing research log, a second-brain dump, even a dream journal. If your shape is "stuff happens, I want it organized, I don't care about metrics," you can press enter at the metrics question during install and run it as a pure context layer. The `/welcome` skill detects which shape you're going for and tailors the rhythm.
+
 **This is NOT for users looking for full automation.** Battle Plan is a foundation layer for people who want to work *with* an AI as a project manager, actively, daily, hands-on. The memory system is only as good as the input you give it. Concretely, that means:
 
 - You run `/good-morning`, `/wrap-up`, and `/weekly-triage` religiously. They're a few minutes each (depending on how big your context layer gets) and they're the spine of the system. Skip them and the cascade silts up.
@@ -60,7 +62,7 @@ If you want to drop in a tool and have it figure your project out from scratch, 
 npx create-battle-plan
 ```
 
-That's it. The installer asks about your project and scaffolds everything. When it's done, open the folder in Claude Code and run `/good-morning` to start your first session.
+That's it. The installer asks about your project and scaffolds everything. When it's done, open the folder in Claude Code and run `/welcome` for a guided first-session tour. After that, `/good-morning` is your daily entry point.
 
 > **Alternative:** If you prefer to clone manually:
 > ```bash
@@ -71,25 +73,25 @@ That's it. The installer asks about your project and scaffolds everything. When 
 
 ## How this system is meant to be used
 
-**The chat is the only UI you actually need.** Everything else — the battle plan, the cascade, `tasks.yml`, even `today.md` — exists for the LLM, not for you. You can run this whole system without ever opening a markdown file: tell Claude what happened, ask Claude what's next, let it read and write the underlying docs.
+**The chat is the only UI you actually need.** Everything else (the battle plan, the cascade, `tasks.yml`, even `today.md`) exists for the LLM, not for you. You can run this whole system without ever opening a markdown file: tell Claude what happened, ask Claude what's next, let it read and write the underlying docs.
 
 The one exception is the **outreach add-on**: the daily blitz checklist (`outreach/inbox/YYYY-MM-DD.md`) has checkboxes you tick as you send LinkedIn messages. Without that interactive surface, the system has no way to know which messages actually went out. Everything else is optional reading.
 
 This scaffold ships with two layers of documents. They are **not interchangeable**, and understanding the split is the key to getting value out of the system.
 
-### Layer 1 — The cascade (for the LLM)
+### Layer 1: The cascade (for the LLM)
 
-`docs/battle-plan.md` is the top of a cascade of cross-linked markdown documents: customer insights, hypotheses, ICP definitions, competitive landscape, technical decisions. The cascade's audience is the AI agent you work with — it reads the battle plan to orient itself, follows links into deeper docs when it needs detail, and writes updates back into the cascade whenever new information lands (a customer reply, a hypothesis validated, a metric shift).
+`docs/battle-plan.md` is the top of a cascade of cross-linked markdown documents: customer insights, hypotheses, ICP definitions, competitive landscape, technical decisions. The cascade's audience is the AI agent you work with. It reads the battle plan to orient itself, follows links into deeper docs when it needs detail, and writes updates back into the cascade whenever new information lands (a customer reply, a hypothesis validated, a metric shift).
 
-**You, the human user, do not need to read the battle plan daily.** You can edit it if you want, but the default is: let the AI maintain it. Ask the AI questions when you need context — "what did we learn from the last three discovery calls?" — and it will traverse the cascade for you. Over weeks and months, the battle plan and its source docs become a deep, searchable memory of your project that the AI uses to be dramatically more useful than it could be from chat context alone.
+**You, the human user, do not need to read the battle plan daily.** You can edit it if you want, but the default is: let the AI maintain it. Ask the AI questions when you need context (like "what did we learn from the last three discovery calls?") and it will traverse the cascade for you. Over weeks and months, the battle plan and its source docs become a deep, searchable memory of your project that the AI uses to be dramatically more useful than it could be from chat context alone.
 
-### Layer 2 — Your daily surface (optional)
+### Layer 2: Your daily surface (optional)
 
-`docs/today.md` is regenerated from `tasks.yml` every time you run `node tools/tasks/render-today.js`. It uses three ```tasks query blocks on top (Today / This week / Backlog) that render as styled, interactive lists via the [Obsidian Tasks plugin](https://publish.obsidian.md/tasks/) — pill chips for due dates, priority icons, clickable checkboxes. Below them sits a `## Task data` section with the raw `- [ ]` source lines; the plugin indexes those, the queries project them, and the flush script reads them. Tasks are grouped by lane (`build / outreach / discovery / infra / fundraising / meta`) within each priority bucket so you can scan by area instead of a flat priority-sorted wall. If you like a visual checklist, today.md is where you live; if you'd rather just ask Claude what's next, that works too — it reads `tasks.yml` directly.
+`docs/today.md` is regenerated from `tasks.yml` every time you run `node tools/tasks/render-today.js`. It uses three ```tasks query blocks on top (Today / This week / Backlog) that render as styled, interactive lists via the [Obsidian Tasks plugin](https://publish.obsidian.md/tasks/): pill chips for due dates, priority icons, clickable checkboxes. Below them sits a `## Task data` section with the raw `- [ ]` source lines; the plugin indexes those, the queries project them, and the flush script reads them. Tasks are grouped by lane (`build / outreach / discovery / infra / fundraising / meta`) within each priority bucket so you can scan by area instead of a flat priority-sorted wall. If you like a visual checklist, today.md is where you live; if you'd rather just ask Claude what's next, that works too. It reads `tasks.yml` directly.
 
 When you're done with the day, run `node tools/tasks/flush-today.js` and your checkbox edits get reconciled back into `tasks.yml`. The file archives to `docs/today-archive/YYYY-MM-DD.md` for history.
 
-If you install the outreach add-on, `outreach/inbox/YYYY-MM-DD.md` is your daily outreach blitz — generated by `daily-targets.js`, flushed by `flush-targets.js`. Same pattern.
+If you install the outreach add-on, `outreach/inbox/YYYY-MM-DD.md` is your daily outreach blitz, generated by `daily-targets.js` and flushed by `flush-targets.js`. Same pattern.
 
 ### The principle
 
@@ -104,7 +106,7 @@ node tools/tasks/render-today.js        # regenerates docs/today.md
 node tools/tasks/flush-today.js         # reconciles back into tasks.yml
 ```
 
-Or just tell the AI "add a task to call Ernst on Monday, high priority" — it runs `add.js` for you.
+Or just tell the AI "add a task to call Ernst on Monday, high priority", and it runs `add.js` for you.
 
 ### Obsidian setup (one-time)
 
@@ -112,7 +114,7 @@ Or just tell the AI "add a task to call Ernst on Monday, high priority" — it r
 2. Tasks plugin settings → enable **Set done date on done tasks** (optional; flush tolerates both).
 3. Optional: **Shell Commands** plugin, bind `node tools/tasks/flush-today.js` to a ribbon button for one-click reconcile.
 
-No custom plugin needed. The Tasks plugin's in-place checkbox toggling is all the UI this system needs. If you don't use Obsidian, the raw `- [ ]` checkbox lines in `## Task data` still work in any markdown editor — you just lose the pill-chip rendering.
+No custom plugin needed. The Tasks plugin's in-place checkbox toggling is all the UI this system needs. If you don't use Obsidian, the raw `- [ ]` checkbox lines in `## Task data` still work in any markdown editor; you just lose the pill-chip rendering.
 
 ### Quick reference
 
@@ -176,7 +178,13 @@ Claude handles the cascade from there. metrics.yml, battle plan, domain docs all
 
 Battle Plan ships with slash commands you can run inside Claude Code. Type them at the prompt.
 
-### `/good-morning` – Start your day
+### `/welcome`: First-session tour (run once)
+
+Run this once, right after `npx create-battle-plan`. Claude introduces itself, reflects your project back to you, explains how the system works in plain language, and asks a couple of questions to figure out what shape your project is (founder validation, metric-heavy ops, journal/second-brain, or something else). The rest of the onboarding is tailored to whatever shape you pick. After it finishes, it marks itself done and won't run again.
+
+If you skip `/welcome` and try `/good-morning` first, the morning standup will redirect you here.
+
+### `/good-morning`: Start your day
 
 Run this at the beginning of each work session. Claude will:
 
@@ -188,7 +196,7 @@ Run this at the beginning of each work session. Claude will:
 
 Think of it as a daily standup with your AI co-pilot.
 
-### `/wrap-up` – End your day
+### `/wrap-up`: End your day
 
 Run this at the end of each work session. Claude will:
 
@@ -196,29 +204,29 @@ Run this at the end of each work session. Claude will:
 2. Present the status for your review
 3. Ask for any last updates (small things count: a reply, a thought, a link)
 4. Run the full cascade to sync everything
-5. **Task hygiene (Step 4.5):** detect git-drift (open tasks where recent commits mention `TASK-N` — probably done but not flipped) and ask you to confirm closure; archive closed tasks older than 14 days into `tasks-archive.yaml`; regenerate today.md so closures land on tomorrow's surface
+5. **Task hygiene (Step 4.5):** detect git-drift (open tasks where recent commits mention `TASK-N`, probably done but not flipped) and ask you to confirm closure; archive closed tasks older than 14 days into `tasks-archive.yaml`; regenerate today.md so closures land on tomorrow's surface
 6. Report: metrics changed (before/after), docs updated, tomorrow's priorities, task-hygiene summary
 7. Offer to commit with an `eod YYYY-MM-DD: [summary]` message
 
 This is how you close out clean every day without forgetting to log something.
 
-### `/weekly-triage` – Weekly task sweep
+### `/weekly-triage`: Weekly task sweep
 
-Run this once a week (Sunday-ish, or whenever the SessionStart nudge fires). The system surfaces every open task one at a time and walks you through an arrow-key multi-choice menu: **Done / Snooze 7 days / Demote / Merge into TASK-X**, plus an "Other" option for `delete / promote / keep / lane LANE / priority N`. Each decision applies to `tasks.yml` immediately — no batching.
+Run this once a week (Sunday-ish, or whenever the SessionStart nudge fires). The system surfaces every open task one at a time and walks you through an arrow-key multi-choice menu: **Done / Snooze 7 days / Demote / Merge into TASK-X**, plus an "Other" option for `delete / promote / keep / lane LANE / priority N`. Each decision applies to `tasks.yml` immediately. No batching.
 
 The underlying `triage.js` data layer surfaces:
 
 - Overdue and stale tasks
 - Recent git commits mentioning a TASK-ID (signals "this is probably done")
-- *Implications drift* — when a task has linked docs (`--implication path/to/doc.md`) and the doc hasn't been touched since the task was created
-- *Source context* — what battle-plan day spawned the task, which transcript it came from, which hypothesis it relates to (so you don't get a 3-week-old task and think "what does this even mean?")
-- *Blocked-by chains* — tasks waiting on another open task get a pass on the stale-flag and a "chase the blocker" suggestion instead
+- *Implications drift*: when a task has linked docs (`--implication path/to/doc.md`) and the doc hasn't been touched since the task was created
+- *Source context*: what battle-plan day spawned the task, which transcript it came from, which hypothesis it relates to (so you don't get a 3-week-old task and think "what does this even mean?")
+- *Blocked-by chains*: tasks waiting on another open task get a pass on the stale-flag and a "chase the blocker" suggestion instead
 
 It takes 15-25 minutes for a full sweep. The SessionStart hook auto-nudges if it's been 7+ days since your last triage, or if 20+ tasks are sitting ≥14 days old, or if the open pile is over 60. The skill stamps `last_triage_at` on completion to silence the nudge until the next cycle.
 
 This is the difference between a `tasks.yml` that compounds in value over months and one that silts up into a dead pile.
 
-### `/distill <doc-path> [keep:N]` – Compress a long doc
+### `/distill <doc-path> [keep:N]`: Compress a long doc
 
 When a doc grows too long for the LLM to read efficiently, `/distill` compresses older content into a thorough summary while archiving the verbatim raw content in `docs/archive/`. Nothing is lost.
 
@@ -299,9 +307,11 @@ Full rules are in `CLAUDE.md` under "Compression Modes & Timestamping Rules".
 | `metrics.yml` | The numeric source of truth. All key metrics live here. |
 | `docs/` | Your project docs, organised by domain |
 | `docs/README.md` | Vault rules for how docs get written |
-| `.claude/commands/good-morning.md` | `/good-morning` (daily standup command) |
-| `.claude/commands/wrap-up.md` | `/wrap-up` (end-of-day wrap-up command) |
-| `.claude/commands/distill.md` | `/distill` (compress long docs command) |
+| `.claude/commands/welcome.md` | `/welcome` (first-session tour, runs once) |
+| `.claude/commands/good-morning.md` | `/good-morning` (daily standup) |
+| `.claude/commands/wrap-up.md` | `/wrap-up` (end-of-day reconcile) |
+| `.claude/commands/weekly-triage.md` | `/weekly-triage` (weekly task sweep) |
+| `.claude/commands/distill.md` | `/distill` (compress long docs) |
 | `.claude/settings.json` | Hook that auto-triggers onboarding on first run |
 | `tools/init-project.sh` | Scaffolds your project on first run (called by the wizard) |
 | `tools/touch-date.sh` | Sets `Last Updated` to today on any file |
@@ -328,7 +338,7 @@ Claude Code reads `CLAUDE.md` and `.claude/commands/` automatically. For other t
 - **Cursor:** copy `CLAUDE.md` content into `.cursorrules`
 - **Anything else:** load `CLAUDE.md` as your system prompt and replicate the slash commands as snippets
 
-Note: The `/good-morning`, `/wrap-up`, and `/distill` commands are Claude Code slash commands (stored in `.claude/commands/`). If you're using a different tool, you'll need to adapt them to your tool's command system or simply paste the instructions when needed.
+Note: The `/welcome`, `/good-morning`, `/wrap-up`, `/weekly-triage`, and `/distill` commands are Claude Code slash commands (stored in `.claude/commands/`). If you're using a different tool, you'll need to adapt them to your tool's command system or simply paste the instructions when needed.
 
 ## Auto-sync for metrics
 
