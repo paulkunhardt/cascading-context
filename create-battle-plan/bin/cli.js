@@ -667,7 +667,7 @@ ${peopleSections}
   console.log(`${DIM}   + docs/battle-plan.md${RESET}`);
   console.log(`${DIM}   + docs/external-insights.md${RESET}`);
 
-  // Save onboarding answers for Claude to read on first /good-morning
+  // Save onboarding answers for Claude to read on first /welcome
   fs.writeFileSync(
     path.join(targetDir, '.battle-plan-onboarding.json'),
     JSON.stringify(
@@ -730,10 +730,13 @@ ${peopleSections}
   console.log(`${DIM}   │${RESET}  ${BOLD}cd ${relPath} && claude${RESET}${DIM}${' '.repeat(Math.max(0, 37 - relPath.length - 12))}│${RESET}`);
   console.log(`${DIM}   └─────────────────────────────────────────┘${RESET}`);
   console.log('');
-  console.log(`   Once Claude is running, type ${GREEN}${BOLD}/good-morning${RESET}`);
-  console.log(`   to start your first session. Claude will`);
-  console.log(`   introduce itself, explain how everything`);
-  console.log(`   works, and help you set your first targets.`);
+  console.log(`   Once Claude is running, type ${GREEN}${BOLD}/welcome${RESET}`);
+  console.log(`   for a guided tour — Claude will introduce`);
+  console.log(`   itself, walk you through how the system works,`);
+  console.log(`   and tailor things to how you want to use it.`);
+  console.log('');
+  console.log(`   ${DIM}(After that, use ${BOLD}/good-morning${RESET}${DIM} to start each day${RESET}`);
+  console.log(`   ${DIM}and ${BOLD}/wrap-up${RESET}${DIM} to close it out.)${RESET}`);
   console.log('');
 }
 

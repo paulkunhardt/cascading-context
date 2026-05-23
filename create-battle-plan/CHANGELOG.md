@@ -5,6 +5,37 @@ All notable changes to `create-battle-plan` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-05-23
+
+### Added
+- **New `/welcome` skill — dedicated first-session tour.** Replaces the
+  baked-in Step 0 inside `/good-morning`. Welcome is now multi-turn and
+  adaptive:
+  1. Personal greeting that reflects the project back (name, horizon,
+     domains, people, metrics-or-not).
+  2. Plain-language tour of the system — cascade, memory model, "chat is
+     the UI", what each file is for. No internal schema dump.
+  3. **Archetype detection (interactive).** Asks the user whether this
+     project is (a) founder/operator validation, (b) metric-heavy ops,
+     (c) journal / second-brain, or (d) something else. Tailors the
+     rest of the onboarding based on the answer — including whether to
+     push for metric targets, recommend the outreach add-on, or set
+     a lower-touch rhythm.
+  4. Slash-command tour, scoped to the archetype.
+  5. Existing-context dump prompt — get signal into the system on day 1.
+  6. Marks itself complete by renaming `.battle-plan-onboarding.json`
+     → `.battle-plan-onboarding-done.json` so it doesn't re-trigger.
+
+### Changed
+- **`/good-morning` is now strictly for daily standups.** First-run
+  welcome content moved entirely into `/welcome`. If a user runs
+  `/good-morning` before `/welcome`, it short-circuits and tells them
+  to run `/welcome` first. Tone section trimmed (no more "first run
+  vs subsequent runs" duality).
+- **Post-install message** now points to `/welcome` instead of
+  `/good-morning`, with a hint that `/good-morning` and `/wrap-up` are
+  for daily use thereafter.
+
 ## [1.4.5] - 2026-05-23
 
 ### Added

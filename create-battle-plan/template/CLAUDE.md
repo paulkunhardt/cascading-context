@@ -197,7 +197,8 @@ Tags grow forward with `, ` separator. Notes grow forward with `| ` separator �
 **Outreach scripts (Profile B):** `tools/outreach/` — `daily-targets.js`, `flush-targets.js`, `flush-updates.js`, `flush-accepts.js`, `flush-inbox.js`, `sync-metrics.js`, `update-dashboard.js`, `stats.js`, `lookup.js`, `stale-invitations.js`.
 
 **Skills (`.claude/commands/`):**
-- `good-morning` — morning standup (metrics + today.md + events context-debt check)
+- `welcome` — first-session tour (runs once, after `npx create-battle-plan`). Introduces the system, detects project archetype, tailors onboarding.
+- `good-morning` — morning standup (metrics + today.md + events context-debt check). Refuses to run until `/welcome` has completed.
 - `wrap-up` — end-of-day reconciliation + task hygiene + events gate
 - `weekly-triage` — task-pile sweep
 - `distill` — compress chronological / amended doc history
