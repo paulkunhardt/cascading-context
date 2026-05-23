@@ -5,6 +5,16 @@ All notable changes to `create-battle-plan` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3] - 2026-05-23
+
+### Fixed
+- **Empty answers to required prompts no longer hard-exit the wizard.**
+  Previously, hitting enter on Q1 (project name), Q4 (metrics), or Q5
+  (domains) printed a one-liner and called `process.exit(1)`, dropping
+  the user back to the shell after they'd already answered other
+  questions. Now the wizard prints a yellow error explaining what's
+  needed and re-prompts until the user provides a non-empty answer.
+
 ## [1.4.2] - 2026-05-23
 
 ### Fixed

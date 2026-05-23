@@ -71,6 +71,14 @@ function ask(question) {
   });
 }
 
+async function askRequired(question, errorMsg) {
+  while (true) {
+    const answer = await ask(question);
+    if (answer) return answer;
+    console.log(`${YELLOW}   ${errorMsg}${RESET}`);
+  }
+}
+
 // ── Interactive folder picker (raw mode) ─────────────────
 
 function getDirs(dir) {
@@ -310,8 +318,10 @@ async function main() {
   initReadline();
 
   // Question 1: Project description (one sentence — used for context, not the folder name)
-  const projectName = await ask(`${DIM}[1/7]${RESET} ${BOLD}What's your project in one sentence?${RESET}\n> `);
-  if (!projectName) { console.log('Project name is required.'); process.exit(1); }
+  const projectName = await askRequired(
+    `${DIM}[1/7]${RESET} ${BOLD}What's your project in one sentence?${RESET}\n> `,
+    'A one-sentence description is required — even rough is fine. Try again:'
+  );
   console.log('');
 
   // Question 2: Short name (the actual folder slug). Default = cwd basename when sensible.
@@ -339,19 +349,19 @@ async function main() {
   console.log('');
 
   // Question 4: Metrics
-  const metricsRaw = await ask(
-    `${DIM}[4/7]${RESET} ${BOLD}What are the 3-5 key metrics you want to track?${RESET} ${DIM}(comma-separated, e.g., "outreach sent, calls booked, LOIs signed")${RESET}\n> `
+  const metricsRaw = await askRequired(
+    `${DIM}[4/7]${RESET} ${BOLD}What are the 3-5 key metrics you want to track?${RESET} ${DIM}(comma-separated, e.g., "outreach sent, calls booked, LOIs signed")${RESET}\n> `,
+    'At least one metric is required — pick anything quantifiable you care about. You can rename or add more later in metrics.yml. Try again:'
   );
-  if (!metricsRaw) { console.log('At least one metric is required.'); process.exit(1); }
   const metrics = metricsRaw.split(',').map((m) => m.trim()).filter(Boolean);
   console.log('');
 
   // Question 5: Domains
   const suggested = suggestDomains(projectName);
-  const domainsRaw = await ask(
-    `${DIM}[5/7]${RESET} ${BOLD}What domains does your work cover?${RESET} ${DIM}(comma-separated)\nSuggested based on your project: ${suggested}${RESET}\n> `
+  const domainsRaw = await askRequired(
+    `${DIM}[5/7]${RESET} ${BOLD}What domains does your work cover?${RESET} ${DIM}(comma-separated)\nSuggested based on your project: ${suggested}${RESET}\n> `,
+    `At least one domain is required — try the suggestions (${suggested}) or any topic area. Try again:`
   );
-  if (!domainsRaw) { console.log('At least one domain is required.'); process.exit(1); }
   const domains = domainsRaw.split(',').map((d) => d.trim().toLowerCase()).filter(Boolean);
   console.log('');
 
